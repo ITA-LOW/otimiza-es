@@ -15,6 +15,7 @@ toolbox = base.Toolbox()
 # Parâmetros
 IND_SIZE = 16  # Número de turbinas
 CIRCLE_RADIUS = 1300  # Raio do círculo
+N_DIAMETERS = 260 # 2 diâmetros de distancia no minimo
 
 def create_individual_from_coordinates(coords):
     individual = creator.Individual(np.array(coords).flatten().tolist())
@@ -57,7 +58,7 @@ def evaluate(individual):
             penalty_out_of_circle += 1e6  # Penalização alta se a turbina estiver fora do círculo
 
     # Penaliza se as turbinas estão muito próximas
-    min_distance = 130  # Distância mínima entre turbinas
+    min_distance = N_DIAMETERS  # Distância mínima entre turbinas
     for i in range(len(turb_coords)):
         for j in range(i + 1, len(turb_coords)):
             dist = np.linalg.norm(turb_coords[i] - turb_coords[j])
@@ -74,10 +75,6 @@ def evaluate(individual):
 
 toolbox.register("evaluate", evaluate)
 
-# Operadores genéticos
-toolbox.register("mate", tools.cxBlend, alpha=0.5)
-toolbox.register("mutate", tools.mutGaussian, mu=0, sigma=50, indpb=0.2)  # Ajuste o sigma conforme necessário
-toolbox.register("select", tools.selTournament, tournsize=3)
 
 # Função de mutação modificada
 def mutate(individual, mu, sigma, indpb):
@@ -87,9 +84,12 @@ def mutate(individual, mu, sigma, indpb):
             individual[i] += random.gauss(mu, sigma)
             # Garantir que a turbina permaneça dentro do círculo
             enforce_circle(individual)
-    return creator.Individual(individual.tolist()),
+    return creator.Individual(individual.tolist()), 
 
+# Operadores genéticos
+toolbox.register("mate", tools.cxBlend, alpha=0.5)
 toolbox.register("mutate", mutate, mu=0, sigma=50, indpb=0.2)  # Ajuste o sigma conforme necessário
+toolbox.register("select", tools.selTournament, tournsize=3)
 
 # Configuração da otimização
 def main():
