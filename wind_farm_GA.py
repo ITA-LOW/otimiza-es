@@ -4,6 +4,8 @@ from deap import base, creator, tools, algorithms
 import random
 from iea37_aepcalc import calcAEP, getTurbLocYAML, getWindRoseYAML, getTurbAtrbtYAML
 from plot import plot_solution, create_animation
+from skopt import gp_minimize
+from skopt.space import Integer, Real
 
 # Definindo o tipo de problema (Maximização)
 creator.create("FitnessMax", base.Fitness, weights=(1.0,))
@@ -15,7 +17,7 @@ toolbox = base.Toolbox()
 # Parâmetros
 IND_SIZE = 16  # Número de turbinas
 CIRCLE_RADIUS = 1300  # Raio do círculo
-N_DIAMETERS = 260 # 2 diâmetros de distancia no minimo
+N_DIAMETERS = 260  # 2 diâmetros de distância no mínimo
 
 def create_individual_from_coordinates(coords):
     individual = creator.Individual(np.array(coords).flatten().tolist())
@@ -55,7 +57,7 @@ def evaluate(individual):
     
     for x, y in turb_coords:
         if not is_within_circle(x, y, CIRCLE_RADIUS):
-            penalty_out_of_circle += 1e6  # Penalização alta se a turbina estiver fora do círculo
+            penalty_out_of_circle += 1e6  # Penalização ajustada se a turbina estiver fora do círculo
 
     # Penaliza se as turbinas estão muito próximas
     min_distance = N_DIAMETERS  # Distância mínima entre turbinas
@@ -63,7 +65,7 @@ def evaluate(individual):
         for j in range(i + 1, len(turb_coords)):
             dist = np.linalg.norm(turb_coords[i] - turb_coords[j])
             if dist < min_distance:
-                penalty_close_turbines += 1e6  # Penalização alta se a turbina estiver muito próxima de outra
+                penalty_close_turbines += 1e6  # Penalização ajustada se a turbina estiver muito próxima de outra
     
     # Calculando o AEP
     aep = calcAEP(turb_coords, wind_freq, wind_speed, wind_dir, turb_diam, turb_ci, turb_co, rated_ws, rated_pwr)
@@ -73,31 +75,29 @@ def evaluate(individual):
     
     return fitness,
 
-toolbox.register("evaluate", evaluate)
-
-
 # Função de mutação modificada
 def mutate(individual, mu, sigma, indpb):
     individual = np.array(individual)
-    for i in range(len(individual)):
-        if random.random() < indpb:
+    if random.random() < indpb:
+        for i in range(len(individual)):
             individual[i] += random.gauss(mu, sigma)
-            # Garantir que a turbina permaneça dentro do círculo
-            enforce_circle(individual)
+        # Garantir que a turbina permaneça dentro do círculo após mutação
+        enforce_circle(individual)
     return creator.Individual(individual.tolist()), 
 
 # Operadores genéticos
 toolbox.register("mate", tools.cxBlend, alpha=0.5)
 toolbox.register("mutate", mutate, mu=0, sigma=50, indpb=0.2)  # Ajuste o sigma conforme necessário
 toolbox.register("select", tools.selTournament, tournsize=3)
+toolbox.register("evaluate", evaluate)
 
 # Configuração da otimização
 def main():
     random.seed(42)
     
     # Configura o ambiente DEAP
-    pop = toolbox.population(n=100)  # Aumenta o tamanho da população
-    hof = tools.HallOfFame(1)
+    pop = toolbox.population(n=100)  # Tamanho da população
+    hof = tools.HallOfFame(1)  # Manter o melhor indivíduo
     stats = tools.Statistics(lambda ind: ind.fitness.values)
     stats.register("avg", np.mean)
     stats.register("std", np.std)
@@ -106,8 +106,9 @@ def main():
 
     solutions = []
 
-    for gen in range(100):  # Aumenta o número de gerações
-        pop, logbook = algorithms.eaSimple(pop, toolbox, cxpb=0.7, mutpb=0.3, ngen=1, 
+    # Loop principal de otimização
+    for gen in range(100):  # Número de gerações
+        pop, logbook = algorithms.eaSimple(pop, toolbox, cxpb=0.7, mutpb=0.3, ngen=5, 
                                            stats=stats, halloffame=hof, verbose=True)
 
         best_individual = hof[0]
