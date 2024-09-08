@@ -88,7 +88,7 @@ def mutate(individual, mu, sigma, indpb):
 # Operadores genéticos
 toolbox.register("mate", tools.cxBlend, alpha=0.5)
 toolbox.register("mutate", mutate, mu=0, sigma=50, indpb=0.2) 
-toolbox.register("select", tools.selTournament, tournsize=3)
+toolbox.register("select", tools.selTournament, tournsize=2)
 toolbox.register("evaluate", evaluate)
 
 # Configuração da otimização
@@ -104,16 +104,13 @@ def main():
     stats.register("min", np.min)
     stats.register("max", np.max)
 
-    solutions = []
-
     # Loop principal de otimização
-    for gen in range(100):  # Número de gerações
-        pop, logbook = algorithms.eaSimple(pop, toolbox, cxpb=0.7, mutpb=0.3, ngen=5, 
-                                           stats=stats, halloffame=hof, verbose=True)
+    #for gen in range(100):  # Número de gerações
+    pop, logbook = algorithms.eaSimple(pop, toolbox, cxpb=0.7, mutpb=0.3, ngen=1000, 
+                                        stats=stats, halloffame=hof, verbose=True)
 
-        best_individual = hof[0]
-        best_coords = np.array(best_individual).reshape((IND_SIZE, 2))
-        solutions.append(best_coords.copy())
+    best_individual = hof[0]
+    best_coords = np.array(best_individual).reshape((IND_SIZE, 2))
     
     best_individual = hof[0]
     best_coords = np.array(best_individual).reshape((IND_SIZE, 2))
@@ -124,7 +121,6 @@ def main():
     print("Coordenadas X:", x_coords)
     print("Coordenadas Y:", y_coords)
 
-    create_animation(solutions, IND_SIZE, CIRCLE_RADIUS)
     plot_solution(x_coords, y_coords)
 
     return pop, stats, hof

@@ -52,3 +52,12 @@ def create_animation(generations, num_turbines, radius):
     ani = animation.FuncAnimation(fig, update, frames=len(generations), repeat=False)
     ani.save('wind_farm_optimization.gif', writer='imagemagick')
     plt.close(fig)
+
+def plot_max(x,y):
+    plt.figure()
+    plt.plot(x, y, marker='o')
+    plt.xlabel("Geração")
+    plt.ylabel("Aptidão Máxima")
+    plt.title("Evolução da Aptidão Máxima ao Longo das Gerações")
+    plt.grid()
+    plt.show()
