@@ -3,9 +3,7 @@ import numpy as np
 from deap import base, creator, tools, algorithms
 import random
 from iea37_aepcalc import calcAEP, getTurbLocYAML, getWindRoseYAML, getTurbAtrbtYAML
-from plot import plot_solution, create_animation
-from skopt import gp_minimize
-from skopt.space import Integer, Real
+from plot import plot_solution, create_animation, plot_fitness
 
 # Definindo o tipo de problema (Maximização)
 creator.create("FitnessMax", base.Fitness, weights=(1.0,))
@@ -104,24 +102,31 @@ def main():
     stats.register("min", np.min)
     stats.register("max", np.max)
 
+    generation_data = []
+    max_fitness_data = []
+
     # Loop principal de otimização
-    #for gen in range(100):  # Número de gerações
     pop, logbook = algorithms.eaSimple(pop, toolbox, cxpb=0.7, mutpb=0.3, ngen=1000, 
                                         stats=stats, halloffame=hof, verbose=True)
+
+    # Salvando a aptidão máxima por geração
+    for record in logbook:
+        generation_data.append(record['gen'])
+        max_fitness_data.append(record['max'])
 
     best_individual = hof[0]
     best_coords = np.array(best_individual).reshape((IND_SIZE, 2))
     
-    best_individual = hof[0]
-    best_coords = np.array(best_individual).reshape((IND_SIZE, 2))
     x_coords = best_coords[:, 0].tolist()
     y_coords = best_coords[:, 1].tolist()
-    
+
     print("Melhor solução:")
     print("Coordenadas X:", x_coords)
     print("Coordenadas Y:", y_coords)
 
+    # Plotar a solução e a evolução da aptidão
     plot_solution(x_coords, y_coords)
+    plot_fitness(generation_data[3:], max_fitness_data[3:])
 
     return pop, stats, hof
 
