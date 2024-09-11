@@ -63,7 +63,7 @@ def plot_fitness(x, y):
     fig, ax = plt.subplots(figsize=(8, 6))  # Tamanho maior para melhor visualização
 
     # Plota os dados com marcadores menores e uma linha mais espessa
-    ax.plot(x, y, label='Max Fitness', color='b', marker='.', markersize=6, linewidth=1)
+    ax.plot(x, y, label='Max Fitness', color='b',linewidth=1)
 
     # Configurações do título e eixos
     ax.set_title('Max Fitness x Generations', fontsize=16, fontweight='bold')

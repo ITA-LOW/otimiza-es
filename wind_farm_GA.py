@@ -84,9 +84,9 @@ def mutate(individual, mu, sigma, indpb):
     return creator.Individual(individual.tolist()), 
 
 # Operadores genéticos
-toolbox.register("mate", tools.cxBlend, alpha=0.5)
-toolbox.register("mutate", mutate, mu=0, sigma=50, indpb=0.2) 
-toolbox.register("select", tools.selTournament, tournsize=2)
+toolbox.register("mate", tools.cxBlend, alpha=0.6)
+toolbox.register("mutate", mutate, mu=0, sigma=50, indpb=0.7) 
+toolbox.register("select", tools.selTournament, tournsize=6)
 toolbox.register("evaluate", evaluate)
 
 # Configuração da otimização
@@ -94,7 +94,7 @@ def main():
     random.seed(42)
     
     # Configura o ambiente DEAP
-    pop = toolbox.population(n=100)  # Tamanho da população
+    pop = toolbox.population(n=250)  # Tamanho da população
     hof = tools.HallOfFame(1)  # Manter o melhor indivíduo
     stats = tools.Statistics(lambda ind: ind.fitness.values)
     stats.register("avg", np.mean)
@@ -106,10 +106,10 @@ def main():
     max_fitness_data = []
 
     # Loop principal de otimização
-    pop, logbook = algorithms.eaSimple(pop, toolbox, cxpb=0.7, mutpb=0.3, ngen=1000, 
+    pop, logbook = algorithms.eaSimple(pop, toolbox, cxpb=0.7, mutpb=0.7, ngen=1500, 
                                         stats=stats, halloffame=hof, verbose=True)
 
-    # Salvando a aptidão máxima por geração
+    # Salvando a aptidão máxima por geração, todas as informaçoes do verbose estao aqui
     for record in logbook:
         generation_data.append(record['gen'])
         max_fitness_data.append(record['max'])
@@ -132,3 +132,16 @@ def main():
 
 if __name__ == "__main__":
     pop, stats, hof = main()
+
+
+# cxpb=0.7,     mutpb=0.3,  pop=100,    torneio=2,  alpha=0.5,  gen=1000,    indpb=0.2,    -> ~411815MWh
+# cxpb=0.8,     mutpb=0.4,  pop=100,    torneio=2,  alpha=0.5,  gen=1000,    indpb=0.2,    -> ~411936MWh
+# cxpb=0.85,    mutpb=0.45, pop=100,    torneio=2,  alpha=0.5,  gen=1000,    indpb=0.2,    -> ~410619MWh
+# cxpb=0.8,     mutpb=0.4,  pop=250,    torneio=2,  alpha=0.5,  gen=1500,    indpb=0.2,    -> ~411012MWh
+# cxpb=0.8,     mutpb=0.4,  pop=250,    torneio=4,  alpha=0.5,  gen=1500,    indpb=0.2,    -> ~412294MWh - winner
+# cxpb=0.8,     mutpb=0.4,  pop=250,    torneio=5,  alpha=0.6,  gen=2500,    indpb=0.2,    -> ~410555MWh
+# cxpb=0.5,     mutpb=0.45, pop=250,    torneio=6,  alpha=0.6,  gen=1500,    indpb=0.35,   -> ~400872MWh
+# cxpb=0.7,     mutpb=0.7,  pop=250,    torneio=6,  alpha=0.6,  gen=1500,    indpb=0.7,    -> ~MWh
+
+#NÃO DESLIGUE O COMPUTADOR, VOLTAREI PRA DESLIGÁ-LO -> ITALO
+
