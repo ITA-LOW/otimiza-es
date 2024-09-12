@@ -4,6 +4,7 @@ from deap import base, creator, tools, algorithms
 import random
 from iea37_aepcalc import calcAEP, getTurbLocYAML, getWindRoseYAML, getTurbAtrbtYAML
 from plot import plot_solution, create_animation, plot_fitness
+import multiprocessing
 
 # Definindo o tipo de problema (Maximização)
 creator.create("FitnessMax", base.Fitness, weights=(1.0,))
@@ -84,16 +85,20 @@ def mutate(individual, mu, sigma, indpb):
     return creator.Individual(individual.tolist()), 
 
 # Operadores genéticos
-toolbox.register("mate", tools.cxBlend, alpha=0.6)
-toolbox.register("mutate", mutate, mu=0, sigma=50, indpb=0.7) 
-toolbox.register("select", tools.selTournament, tournsize=6)
+toolbox.register("mate", tools.cxBlend, alpha=0.5)
+toolbox.register("mutate", mutate, mu=0, sigma=50, indpb=0.2) 
+toolbox.register("select", tools.selTournament, tournsize=4)
 toolbox.register("evaluate", evaluate)
 
 # Configuração da otimização
 def main():
     random.seed(42)
+
+    # Criação do pool de processos
+    pool = multiprocessing.Pool()
     
     # Configura o ambiente DEAP
+    toolbox.register("map", pool.map)  
     pop = toolbox.population(n=250)  # Tamanho da população
     hof = tools.HallOfFame(1)  # Manter o melhor indivíduo
     stats = tools.Statistics(lambda ind: ind.fitness.values)
@@ -106,8 +111,12 @@ def main():
     max_fitness_data = []
 
     # Loop principal de otimização
-    pop, logbook = algorithms.eaSimple(pop, toolbox, cxpb=0.7, mutpb=0.7, ngen=1500, 
+    pop, logbook = algorithms.eaSimple(pop, toolbox, cxpb=0.8, mutpb=0.4, ngen=2000, 
                                         stats=stats, halloffame=hof, verbose=True)
+    
+    # Fechando o pool para liberar os recursos
+    pool.close()
+    pool.join()
 
     # Salvando a aptidão máxima por geração, todas as informaçoes do verbose estao aqui
     for record in logbook:
@@ -141,7 +150,7 @@ if __name__ == "__main__":
 # cxpb=0.8,     mutpb=0.4,  pop=250,    torneio=4,  alpha=0.5,  gen=1500,    indpb=0.2,    -> ~412294MWh - winner
 # cxpb=0.8,     mutpb=0.4,  pop=250,    torneio=5,  alpha=0.6,  gen=2500,    indpb=0.2,    -> ~410555MWh
 # cxpb=0.5,     mutpb=0.45, pop=250,    torneio=6,  alpha=0.6,  gen=1500,    indpb=0.35,   -> ~400872MWh
-# cxpb=0.7,     mutpb=0.7,  pop=250,    torneio=6,  alpha=0.6,  gen=1500,    indpb=0.7,    -> ~MWh
+
 
 #NÃO DESLIGUE O COMPUTADOR, VOLTAREI PRA DESLIGÁ-LO -> ITALO
 
