@@ -1,6 +1,7 @@
 import matplotlib.animation as animation
 import matplotlib.pyplot as plt
 import numpy as np
+import csv
 
 estilo='bmh'
 
@@ -33,28 +34,18 @@ def plot_solution(x, y):
     plt.savefig('wind_farm_solution.png', dpi=300, bbox_inches='tight')
     plt.close()
 
-def create_animation(generations, num_turbines, radius):
-    fig, ax = plt.subplots()
-    ax.set_xlim(-radius, radius)
-    ax.set_ylim(-radius, radius)
-    ax.set_aspect('equal', 'box')
+def save_logbook_to_csv(logbook, filename):
+    # Abre o arquivo CSV no modo de escrita
+    with open(filename, mode='w', newline='') as file:
+        writer = csv.writer(file)
+        # Escreve o cabeçalho
+        writer.writerow(['Generation', 'MaxFitness'])
+        # Escreve os dados do logbook
+        for entry in logbook:
+            writer.writerow([entry['gen'], entry['max']])
 
-    def update(frame):
-        ax.clear()
-        ax.set_xlim(-radius, radius)
-        ax.set_ylim(-radius, radius)
-        ax.set_aspect('equal', 'box')
-        best_individual = generations[frame]
-        coords = np.array(best_individual).reshape((num_turbines, 2))
-        ax.plot(coords[:, 0], coords[:, 1], 'bo', markersize=5)
-        circle = plt.Circle((0, 0), radius, color='r', fill=False, linestyle='--', linewidth=2)
-        ax.add_artist(circle)
-        ax.set_title(f"Generation {frame + 1}")
-        ax.grid(True, which='both', linestyle='--', linewidth=0.5, alpha=0.7)
+    print(f'Dados salvos em {filename}')
 
-    ani = animation.FuncAnimation(fig, update, frames=len(generations), repeat=False)
-    ani.save('wind_farm_optimization.gif', writer='imagemagick')
-    plt.close(fig)
 
 def plot_fitness(x, y):
     plt.style.use(estilo)  # Aplicando um estilo mais suave com grade escura
@@ -76,6 +67,38 @@ def plot_fitness(x, y):
     # Salva o gráfico em um arquivo
     plt.savefig('max_fitness_vs_generations.png', dpi=300, bbox_inches='tight')  # Garante que tudo fique dentro do espaço salvo
     plt.close()
+
+def plot_multiple_tests(file_list, style='default'):
+    plt.style.use(style)
+    
+    fig, ax = plt.subplots(figsize=(8, 6))  # Configura a figura
+    
+    # Itera sobre cada arquivo de dados
+    for filename in file_list:
+        generations = []
+        max_fitness = []
+        
+        # Lê os dados de cada arquivo CSV
+        with open(filename, mode='r') as file:
+            reader = csv.DictReader(file)
+            for row in reader:
+                generations.append(int(row['Generation']))
+                max_fitness.append(float(row['MaxFitness']))
+        
+        # Plota cada execução com uma cor diferente
+        ax.plot(generations, max_fitness, label=f'Test: {filename}', linewidth=1)
+
+    # Configurações do gráfico
+    ax.set_title('Max Fitness x Generations for Multiple Tests', fontsize=16, fontweight='bold')
+    ax.set_xlabel('Generations', fontsize=14)
+    ax.set_ylabel('Max Fitness', fontsize=14)
+    ax.grid(True, linestyle='--', alpha=0.7)
+    ax.legend()
+
+    # Salva o gráfico em um arquivo
+    plt.savefig('max_fitness_multiple_tests.png', dpi=300, bbox_inches='tight')
+    plt.show()
+
 
 """ ['Solarize_Light2', '_classic_test_patch', '_mpl-gallery', '_mpl-gallery-nogrid', 
  'bmh', 'classic', 'dark_background', 'fast', 'fivethirtyeight', 'ggplot', 

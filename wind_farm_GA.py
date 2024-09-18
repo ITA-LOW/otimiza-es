@@ -3,8 +3,9 @@ import numpy as np
 from deap import base, creator, tools, algorithms
 import random
 from iea37_aepcalc import calcAEP, getTurbLocYAML, getWindRoseYAML, getTurbAtrbtYAML
-from plot import plot_solution, create_animation, plot_fitness
+from plot import plot_solution, plot_fitness, save_logbook_to_csv
 import multiprocessing
+import time
 
 # Definindo o tipo de problema (Maximização)
 creator.create("FitnessMax", base.Fitness, weights=(1.0,))
@@ -136,6 +137,8 @@ def main():
     # Plotar a solução e a evolução da aptidão
     plot_solution(x_coords, y_coords)
     plot_fitness(generation_data[3:], max_fitness_data[3:])
+    save_logbook_to_csv(logbook, "nome do teste.csv")
+
 
     return pop, stats, hof
 
