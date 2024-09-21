@@ -37,7 +37,7 @@ def enforce_circle(individual):
         if not is_within_circle(x, y, CIRCLE_RADIUS):
             # Ajusta a turbina para ficar dentro do círculo
             angle = np.arctan2(y, x)
-            distance = min(np.sqrt(x**2 + y**2), CIRCLE_RADIUS)
+            distance = CIRCLE_RADIUS
             individual[2*i] = distance * np.cos(angle)
             individual[2*i + 1] = distance * np.sin(angle)
 
@@ -87,7 +87,7 @@ def mutate(individual, mu, sigma, indpb):
 
 # Operadores genéticos
 toolbox.register("mate", tools.cxBlend, alpha=0.5)
-toolbox.register("mutate", mutate, mu=0, sigma=100, indpb=0.2) 
+toolbox.register("mutate", mutate, mu=0, sigma=100, indpb=0.35) 
 toolbox.register("select", tools.selTournament, tournsize=5)
 toolbox.register("evaluate", evaluate)
 
@@ -102,7 +102,7 @@ def main():
     
     # Configura o ambiente DEAP
     toolbox.register("map", pool.map)  
-    pop = toolbox.population(n=280)  # Tamanho da população
+    pop = toolbox.population(n=300)  # Tamanho da população
     hof = tools.HallOfFame(1)  # Manter o melhor indivíduo
     stats = tools.Statistics(lambda ind: ind.fitness.values)
     stats.register("avg", np.mean)
@@ -139,7 +139,7 @@ def main():
     # Plotar a solução e a evolução da aptidão
     #plot_solution(x_coords, y_coords)
     #plot_fitness(generation_data[3:], max_fitness_data[3:])
-    save_logbook_to_csv(logbook, "set_12")
+    save_logbook_to_csv(logbook, "set_18")
 
     end_time = time.time()
     total_min = int((end_time - start_time)//60)
@@ -170,6 +170,6 @@ if __name__ == "__main__":
 #15 cxpb=0.85,    mutpb=0.35, pop=400,    torneio=5,  alpha=0.5,  gen=500,     indpb=0.2,     sigma=100,  -> ~412403MWh
 #16 cxpb=0.85,    mutpb=0.35, pop=300,    torneio=5,  alpha=0.5,  gen=3000,    indpb=0.2,     sigma=100,  -> ~415289MWh - winner
 #17 cxpb=0.85,    mutpb=0.35, pop=350,    torneio=5,  alpha=0.5,  gen=2500,    indpb=0.2,     sigma=100,  -> ~410840MWh
-#18 cxpb=0.85,    mutpb=0.35, pop=310,    torneio=5,  alpha=0.5,  gen=500,     indpb=0.2,     sigma=100,  -> ~MWh
+#18 cxpb=0.85,    mutpb=0.35, pop=300,    torneio=6,  alpha=0.5,  gen=1000,    indpb=0.2,     sigma=100,  -> ~408632MWh
 
 #NÃO DESLIGUE O COMPUTADOR, VOLTAREI PRA DESLIGÁ-LO -> ITALO
