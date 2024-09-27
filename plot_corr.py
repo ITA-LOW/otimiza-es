@@ -28,4 +28,6 @@ sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', linewidths=0.5, fmt
 
 # Título e exibição
 plt.title('Mapa de Correlação entre Parâmetros e AEP', fontsize=16)
+plt.savefig("Mapa de correlação", dpi=300)
+
 plt.show()
