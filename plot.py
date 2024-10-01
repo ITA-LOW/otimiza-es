@@ -5,7 +5,7 @@ import csv
 
 estilo='default'
 
-def plot_solution(x, y):
+def plot_solution(x, y, radius):
     # Aplica o estilo ao gráfico
     plt.style.use(estilo)
     
@@ -16,12 +16,12 @@ def plot_solution(x, y):
     ax.plot(x, y, 'bo', markersize=6)
 
     # Adiciona um círculo representando a fronteira
-    circle = plt.Circle((0, 0), 1300, color='r', fill=False, linestyle='--', linewidth=2)
+    circle = plt.Circle((0, 0), radius, color='r', fill=False, linestyle='--', linewidth=2)
     ax.add_artist(circle)
 
     # Configura os limites e rótulos
-    ax.set_xlim(-1400, 1400)
-    ax.set_ylim(-1400, 1400)
+    ax.set_xlim(-radius-100, radius+100)
+    ax.set_ylim(-radius-100, radius+100)
     ax.set_aspect('equal', 'box')  
     ax.set_xlabel('X Coordinate (m)', fontsize=12)
     ax.set_ylabel('Y Coordinate (m)', fontsize=12)

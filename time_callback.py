@@ -11,8 +11,8 @@ class TimeCallback:
         # Inicializando o arquivo CSV com cabeçalhos
         with open(self.csv_file, mode='w', newline='') as file:
             writer = csv.writer(file)
-            # Escreve os cabeçalhos das colunas (hiperparâmetros e AEP)
-            writer.writerow(['iteration', 'cxpb', 'mutpb', 'pop', 'torneio', 'alpha', 'geracoes', 'indpb', 'sigma', 'AEP'])
+            # Escreve os cabeçalhos das colunas (hiperparâmetros e AEP), removendo 'iteration'
+            writer.writerow(['cxpb', 'mutpb', 'pop', 'torneio', 'alpha', 'geracoes', 'indpb', 'sigma', 'AEP'])
 
     def __call__(self, res):
         # Inicializa o tempo de início na primeira chamada
@@ -40,7 +40,7 @@ class TimeCallback:
         # Salva no arquivo CSV os parâmetros e o AEP da iteração atual
         with open(self.csv_file, mode='a', newline='') as file:
             writer = csv.writer(file)
-            writer.writerow([self.iteration] + params + [aep])
+            writer.writerow(params + [aep])  # Removendo self.iteration da linha escrita
 
         # Opção para encerrar se atingir o número total de chamadas
         if self.iteration >= self.total_calls:

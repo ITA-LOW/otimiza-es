@@ -15,8 +15,8 @@ creator.create("Individual", list, fitness=creator.FitnessMax)
 toolbox = base.Toolbox()
 
 # Parâmetros
-IND_SIZE = 16  # Número de turbinas
-CIRCLE_RADIUS = 1300  # Raio do círculo
+IND_SIZE = 36  # Número de turbinas
+CIRCLE_RADIUS = 2000  # Raio do círculo
 N_DIAMETERS = 260  # 2 diâmetros de distância no mínimo
 
 def create_individual_from_coordinates(coords):
@@ -24,7 +24,7 @@ def create_individual_from_coordinates(coords):
     return individual
 
 # Carregando coordenadas iniciais
-initial_coordinates, _, _ = getTurbLocYAML('iea37-ex16.yaml')
+initial_coordinates, _, _ = getTurbLocYAML('iea37-ex36.yaml')
 toolbox.register("individual", create_individual_from_coordinates, coords=initial_coordinates.tolist())
 toolbox.register("population", tools.initRepeat, list, toolbox.individual)
 
@@ -44,7 +44,7 @@ def enforce_circle(individual):
 # Função de avaliação
 def evaluate(individual):
     # Carregando os dados dos arquivos YAML
-    turb_coords, fname_turb, fname_wr = getTurbLocYAML("iea37-ex16.yaml")
+    turb_coords, fname_turb, fname_wr = getTurbLocYAML("iea37-ex36.yaml")
     turb_ci, turb_co, rated_ws, rated_pwr, turb_diam = getTurbAtrbtYAML("iea37-335mw.yaml")
     wind_dir, wind_freq, wind_speed = getWindRoseYAML("iea37-windrose.yaml")
 
@@ -87,7 +87,7 @@ def mutate(individual, mu, sigma, indpb):
 
 # Operadores genéticos
 toolbox.register("mate", tools.cxBlend, alpha=0.5)
-toolbox.register("mutate", mutate, mu=0, sigma=100, indpb=0.2) 
+toolbox.register("mutate", mutate, mu=0, sigma=100, indpb=0.55) 
 toolbox.register("select", tools.selTournament, tournsize=5)
 toolbox.register("evaluate", evaluate)
 
@@ -114,7 +114,7 @@ def main():
     max_fitness_data = []
 
     # Loop principal de otimização
-    pop, logbook = algorithms.eaSimple(pop, toolbox, cxpb=0.85, mutpb=0.35, ngen=1500, 
+    pop, logbook = algorithms.eaSimple(pop, toolbox, cxpb=0.95, mutpb=0.55, ngen=1500, 
                                         stats=stats, halloffame=hof, verbose=True)
     
     # Fechando o pool para liberar os recursos
@@ -137,9 +137,9 @@ def main():
     print("Coordenadas Y:", y_coords)
 
     # Plotar a solução e a evolução da aptidão
-    plot_solution(x_coords, y_coords)
-    #plot_fitness(generation_data[3:], max_fitness_data[3:])
-    #save_logbook_to_csv(logbook, "set_19")
+    plot_solution(x_coords, y_coords, radius=CIRCLE_RADIUS)
+    plot_fitness(generation_data[3:], max_fitness_data[3:])
+    save_logbook_to_csv(logbook, "set_19")
 
     end_time = time.time()
     total_min = int((end_time - start_time)//60)

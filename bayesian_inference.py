@@ -3,14 +3,10 @@ import numpy as np
 from deap import base, creator, tools, algorithms
 import random
 from iea37_aepcalc import calcAEP, getTurbLocYAML, getWindRoseYAML, getTurbAtrbtYAML
-from plot import plot_solution, plot_fitness, save_logbook_to_csv
 import multiprocessing
-import time
 import csv
-from skopt import gp_minimize
-from skopt.space import Real, Integer
 from skopt.utils import use_named_args
-from time_callback import TimeCallback
+import time
 
 # Definindo o tipo de problema (Maximização)
 creator.create("FitnessMax", base.Fitness, weights=(1.0,))
@@ -31,6 +27,7 @@ IND_SIZE = 16  # Número de turbinas
 CIRCLE_RADIUS = 1300  # Raio do círculo
 N_DIAMETERS = 260  # 2 diâmetros de distância no mínimo
 
+
 def is_within_circle(x, y, radius):
     return x**2 + y**2 <= radius**2 
 
@@ -38,7 +35,6 @@ def enforce_circle(individual):
     for i in range(IND_SIZE):
         x, y = individual[2*i], individual[2*i + 1]
         if not is_within_circle(x, y, CIRCLE_RADIUS):
-            # Ajusta a turbina para ficar dentro do círculo
             angle = np.arctan2(y, x)
             distance = CIRCLE_RADIUS
             individual[2*i] = distance * np.cos(angle)
@@ -49,27 +45,23 @@ def mutate(individual, mu, sigma, indpb):
     if random.random() < indpb:
         for i in range(len(individual)):
             individual[i] += random.gauss(mu, sigma)
-        # Garantir que a turbina permaneça dentro do círculo após mutação
         enforce_circle(individual)
     return creator.Individual(individual.tolist()), 
 
 # Função de avaliação
 def evaluate(individual):
-    # Carregando os dados dos arquivos YAML
     turb_coords, fname_turb, fname_wr = getTurbLocYAML("iea37-ex16.yaml")
     turb_ci, turb_co, rated_ws, rated_pwr, turb_diam = getTurbAtrbtYAML("iea37-335mw.yaml")
     wind_dir, wind_freq, wind_speed = getWindRoseYAML("iea37-windrose.yaml")
 
-    # Convertendo o indivíduo para coordenadas de turbinas
     turb_coords = np.array(individual).reshape((IND_SIZE, 2))
     
-    # Penalizações
     penalty_out_of_circle = 0
     penalty_close_turbines = 0
     
     for x, y in turb_coords:
         if not is_within_circle(x, y, CIRCLE_RADIUS):
-            penalty_out_of_circle += 1e6  # Penalização ajustada se a turbina estiver fora do círculo
+            penalty_out_of_circle += 1e6
 
     min_distance = N_DIAMETERS
     for i in range(len(turb_coords)):
@@ -78,30 +70,26 @@ def evaluate(individual):
             if dist < min_distance:
                 penalty_close_turbines += 1e6
 
-    # Calculando o AEP
     aep = calcAEP(turb_coords, wind_freq, wind_speed, wind_dir, turb_diam, turb_ci, turb_co, rated_ws, rated_pwr)
     
     fitness = np.sum(aep) - penalty_out_of_circle - penalty_close_turbines
     
     return fitness,
 
-# Definindo o espaço de busca
-space = [
-    Real(0.7, 0.9, name='cxpb'),  # Varie cxpb
-    Real(0.1, 0.4, name='indpb'),  # Varie indpb
-]
+# Parâmetros para testar
+cxpb_values = [i / 100.0 for i in range(90, 101, 5)]    # 0.90 a 1.00
+indpb_values = [i / 100.0 for i in range(35, 56, 5)]    # 0.35 a 0.55
+mutpb_values = [i / 100.0 for i in range(50, 56, 5)]    # 0.50 a 0.55
 
 # Função principal do algoritmo genético
-def main(cxpb, indpb):
+def main(cxpb, indpb, mutpb):
     random.seed(42)
 
-    # Parâmetros fixos
     pop = 300
     torneio = 5
     alpha = 0.5
-    gen = 1000
+    gen = 300
     sigma = 100
-    mutpb = 0.35
 
     pool = multiprocessing.Pool()
     toolbox.register("map", pool.map)
@@ -127,27 +115,33 @@ def main(cxpb, indpb):
     best_individual = hof[0]
     best_coords = np.array(best_individual).reshape((IND_SIZE, 2))
     aep = evaluate(best_individual)[0]
-
-    print(f"AEP: {aep} MWh")
+    
 
     return aep
 
-# Função objetivo para a inferência bayesiana
-@use_named_args(space)
-def objective(cxpb, indpb):
-    return -main(cxpb, indpb)
 
-# Callback para monitorar o tempo e salvar os parâmetros em CSV
-total_calls = 15  # Número total de chamadas
-callback = TimeCallback(total_calls, csv_file='hyperparameters_aep_log.csv')
 
-x0 = [0.85, 0.2]  # Valores iniciais para cxpb e indpb
+# Testando combinações de parâmetros
+results = []
+for cxpb in cxpb_values:
+    for indpb in indpb_values:
+        for mutpb in mutpb_values:
+            aep = main(cxpb, indpb, mutpb)
+            results.append((cxpb, indpb, mutpb, aep))
+            print(f"CXPB: {cxpb:.2f}, INDPB: {indpb:.2f}, MUTPB: {mutpb:.2f} AEP: {aep:.2f} MWh")
+            # Salvando os resultados em um arquivo CSV
+            with open('results.csv', 'w', newline='') as csvfile:
+                writer = csv.writer(csvfile)
+                writer.writerow(['CXPB', 'INDPB', 'MUTPB', 'AEP'])
+                writer.writerows(results)
 
-# Otimização
-res = gp_minimize(objective, space, n_calls=total_calls, x0=[x0], random_state=42, callback=[callback])
-
-# Resultados
-best_params = res.x
+# Exibindo os melhores resultados
+best_result = max(results, key=lambda x: x[3])
 print("Melhores parâmetros sugeridos:")
-print(f"cxpb = {best_params[0]:.5f},")
-print(f"indpb = {best_params[1]:.5f},")
+print(f"cxpb = {best_result[0]:.2f},")
+print(f"indpb = {best_result[1]:.2f}")
+print(f"mutpb = {best_result[2]:.2f}")
+print(f"AEP = {best_result[3]:.6f} MWh")
+
+
+#CXPB: 0.90, INDPB: 0.35, MUTPB: 0.50 AEP: 415939.54 MWh
