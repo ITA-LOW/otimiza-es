@@ -23,7 +23,7 @@ definitions:
       speed:
         type: number
         description: A wind speed, constant for these case studies.
-        default: 9.8
+        default: 10.59
         units: m/s
 
       ti:

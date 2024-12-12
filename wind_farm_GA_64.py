@@ -114,7 +114,7 @@ def main():
     max_fitness_data = []
 
     # Loop principal de otimização
-    pop, logbook = algorithms.eaSimple(pop, toolbox, cxpb=0.8, mutpb=0.75, ngen=1000, 
+    pop, logbook = algorithms.eaSimple(pop, toolbox, cxpb=0.8, mutpb=0.75, ngen=300, 
                                         stats=stats, halloffame=hof, verbose=True)
     
     # Fechando o pool para liberar os recursos

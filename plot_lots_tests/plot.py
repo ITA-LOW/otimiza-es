@@ -46,10 +46,10 @@ def save_logbook_to_csv(logbook, filename):
 
 
 def plot_fitness(x, y):
-    plt.style.use(estilo)  # Aplicando um estilo mais suave com grade escura
+    plt.style.use(estilo)  
 
     # Configura a figura e os eixos
-    fig, ax = plt.subplots(figsize=(8, 6))  # Tamanho maior para melhor visualização
+    fig, ax = plt.subplots(figsize=(8, 6))  
 
     # Plota os dados com marcadores menores e uma linha mais espessa
     ax.plot(x, y, label='Max Fitness', color='b',linewidth=1)
@@ -69,29 +69,30 @@ def plot_fitness(x, y):
 def plot_multiple_tests(file_list):
     plt.style.use(estilo)
     
-    fig, ax = plt.subplots(figsize=(8, 6))  # Configura a figura
+    fig, ax = plt.subplots(figsize=(12, 8))  
     
-    # Itera sobre cada arquivo de dados
     for filename in file_list:
         generations = []
         max_fitness = []
         
-        # Lê os dados de cada arquivo CSV
+        
         with open(filename, mode='r') as file:
             reader = csv.DictReader(file)
             for row in reader:
                 generations.append(int(row['Generation']))
                 max_fitness.append(float(row['MaxFitness']))
         
-        # Plota cada execução com uma cor diferente
-        ax.plot(generations, max_fitness, label=f'Test: {filename}', linewidth=1)
+        
+        ax.plot(generations, max_fitness, label=f'{filename}', linewidth=1)
 
     # Configurações do gráfico
-    ax.set_title('Max Fitness x Generations for Multiple Tests', fontsize=16, fontweight='bold')
-    ax.set_xlabel('Generations', fontsize=14)
-    ax.set_ylabel('Max Fitness', fontsize=14)
+    ax.set_title('Max Fitness x Tests with Randomly Initialized Parameters\n for 16-turbines Scenario', fontsize=20, fontweight='bold')
+    ax.set_xlabel('Generations', fontsize=18)
+    ax.set_ylabel('Max Fitness', fontsize=18)
     ax.grid(True, linestyle='--', alpha=0.7)
-    ax.legend()
+    ax.legend(loc='upper center', bbox_to_anchor=(0.50, 0.15), ncol=5, fontsize=16, frameon=False)
+    plt.xticks(fontsize=16)
+    plt.yticks(fontsize=16)
 
     # Salva o gráfico em um arquivo
     plt.savefig('max_fitness_multiple_tests.png', dpi=300, bbox_inches='tight')
@@ -105,3 +106,5 @@ def plot_multiple_tests(file_list):
  'seaborn-v0_8-deep', 'seaborn-v0_8-muted', 'seaborn-v0_8-notebook', 'seaborn-v0_8-paper',
  'seaborn-v0_8-pastel', 'seaborn-v0_8-poster', 'seaborn-v0_8-talk', 'seaborn-v0_8-ticks',
  'seaborn-v0_8-white', 'seaborn-v0_8-whitegrid', 'tableau-colorblind10'] """
+
+plot_multiple_tests(["test_1", "test_2", "test_3", "test_4", "test_5", "test_6", "test_7", "test_8", "test_9", "test_10"])

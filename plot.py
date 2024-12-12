@@ -1,16 +1,17 @@
 import matplotlib.animation as animation
+from matplotlib.patches import Polygon as mplPolygon
 import matplotlib.pyplot as plt
 import numpy as np
 import csv
 
 estilo='default'
 
-def plot_solution(x, y, radius):
+def plot_solution_circle(x, y, radius):
     # Aplica o estilo ao gráfico
     plt.style.use(estilo)
-    
+
     # Configura a figura
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=(8, 6))
 
     # Plota as coordenadas das turbinas
     ax.plot(x, y, 'bo', markersize=6)
@@ -22,10 +23,15 @@ def plot_solution(x, y, radius):
     # Configura os limites e rótulos
     ax.set_xlim(-radius-100, radius+100)
     ax.set_ylim(-radius-100, radius+100)
-    ax.set_aspect('equal', 'box')  
-    ax.set_xlabel('X Coordinate (m)', fontsize=12)
-    ax.set_ylabel('Y Coordinate (m)', fontsize=12)
-    ax.set_title('Optimized turbines', fontsize=14)
+    ax.set_aspect('equal', 'box')
+
+    # Aumenta o tamanho da fonte dos rótulos e do título
+    ax.set_xlabel('X Coordinate (m)', fontsize=28)
+    ax.set_ylabel('Y Coordinate (m)', fontsize=28)
+    ax.set_title('Optimized turbines', fontsize=30)
+
+    # Aumenta o tamanho da fonte dos ticks
+    ax.tick_params(axis='both', which='major', labelsize=28)
 
     # Adiciona uma grade e uma legenda
     ax.grid(True, linestyle='--', alpha=0.7)
@@ -33,6 +39,7 @@ def plot_solution(x, y, radius):
     # Salva o gráfico em um arquivo
     plt.savefig('wind_farm_solution.png', dpi=300, bbox_inches='tight')
     plt.close()
+
 
 def save_logbook_to_csv(logbook, filename):
     # Abre o arquivo CSV no modo de escrita
@@ -97,6 +104,45 @@ def plot_multiple_tests(file_list):
     plt.savefig('max_fitness_multiple_tests.png', dpi=300, bbox_inches='tight')
     plt.show()
 
+def plot_solution_polygons(x, y, polygons):
+    plt.style.use(estilo)
+
+    # Configura a figura
+    fig, ax = plt.subplots(figsize=(10, 8))
+
+    # Plota as coordenadas das turbinas
+    ax.plot(x, y, 'bo', markersize=6, label='Turbines')
+
+    # Plota cada polígono
+    for poly in polygons:
+        # Converte o polígono shapely para um patch do matplotlib
+        mpl_poly = mplPolygon(list(poly.exterior.coords), edgecolor='r', facecolor='none', 
+                               linestyle='--', linewidth=2, label='Boundary')
+        ax.add_patch(mpl_poly)
+
+    # Ajusta os limites automaticamente
+    all_coords = [coord for poly in polygons for coord in poly.exterior.coords]
+    x_coords, y_coords = zip(*all_coords)
+    ax.set_xlim(min(x_coords) - 1000, max(x_coords) + 1000)
+    ax.set_ylim(min(y_coords) - 1000, max(y_coords) + 1000)
+    ax.set_aspect('equal', 'box')
+
+    # Configura os rótulos e título
+    #ax.set_xlabel('X Coordinate (m)', fontsize=28)
+    #ax.set_ylabel('Y Coordinate (m)', fontsize=28)
+    #ax.set_title('Optimized Turbines with Polygon Boundaries', fontsize=30)
+
+    # Aumenta o tamanho da fonte dos ticks
+    ax.tick_params(axis='both', which='major', labelsize=28)
+
+    # Adiciona uma grade e uma legenda
+    ax.grid(True, linestyle='--', alpha=0.7)
+    #ax.legend(fontsize=20)
+
+    # Salva o gráfico em um arquivo
+    plt.savefig('wind_farm_solution_polygons.png', dpi=300, bbox_inches='tight')
+    plt.close()
+
 
 """ ['Solarize_Light2', '_classic_test_patch', '_mpl-gallery', '_mpl-gallery-nogrid', 
  'bmh', 'classic', 'dark_background', 'fast', 'fivethirtyeight', 'ggplot', 
@@ -105,3 +151,4 @@ def plot_multiple_tests(file_list):
  'seaborn-v0_8-deep', 'seaborn-v0_8-muted', 'seaborn-v0_8-notebook', 'seaborn-v0_8-paper',
  'seaborn-v0_8-pastel', 'seaborn-v0_8-poster', 'seaborn-v0_8-talk', 'seaborn-v0_8-ticks',
  'seaborn-v0_8-white', 'seaborn-v0_8-whitegrid', 'tableau-colorblind10'] """
+

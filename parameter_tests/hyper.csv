@@ -1,4 +1,4 @@
-cxpb,mutpb,pop,tournament,alpha,gen,indpb,sigma,AEP
+cxpb,mutpb,pop,tourn.,alpha,gen,indpb,sigma,AEP
 0.7,0.3,100,2,0.5,1000,0.2,50,411815
 0.8,0.4,100,2,0.5,1000,0.2,50,411936
 0.85,0.45,100,2,0.5,1000,0.2,50,410619

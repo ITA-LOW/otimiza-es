@@ -114,7 +114,7 @@ def main():
     max_fitness_data = []
 
     # Loop principal de otimização
-    pop, logbook = algorithms.eaSimple(pop, toolbox, cxpb=0.95, mutpb=0.35, ngen=1000, 
+    pop, logbook = algorithms.eaSimple(pop, toolbox, cxpb=0.95, mutpb=0.35, ngen=200, 
                                         stats=stats, halloffame=hof, verbose=True)
     
     # Fechando o pool para liberar os recursos
@@ -168,7 +168,7 @@ if __name__ == "__main__":
 #13 cxpb=0.85,    mutpb=0.35, pop=300,    torneio=5,  alpha=0.5,  gen=500,     indpb=0.2,     sigma=100,  -> ~415203MWh
 #14 cxpb=0.85,    mutpb=0.35, pop=500,    torneio=5,  alpha=0.5,  gen=500,     indpb=0.2,     sigma=100,  -> ~411113MWh
 #15 cxpb=0.85,    mutpb=0.35, pop=400,    torneio=5,  alpha=0.5,  gen=500,     indpb=0.2,     sigma=100,  -> ~412403MWh
-#16 cxpb=0.85,    mutpb=0.35, pop=300,    torneio=5,  alpha=0.5,  gen=3000,    indpb=0.2,     sigma=100,  -> ~415289MWh - winner
+#16 cxpb=0.85,    mutpb=0.35, pop=300,    torneio=5,  alpha=0.5,  gen=3000,    indpb=0.2,     sigma=100,  -> ~415289MWh
 #17 cxpb=0.85,    mutpb=0.35, pop=350,    torneio=5,  alpha=0.5,  gen=2500,    indpb=0.2,     sigma=100,  -> ~410840MWh
 #18 cxpb=0.85,    mutpb=0.35, pop=300,    torneio=6,  alpha=0.5,  gen=1000,    indpb=0.2,     sigma=100,  -> ~408632MWh
 

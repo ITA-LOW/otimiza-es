@@ -5,7 +5,6 @@ import random
 from iea37_aepcalc import calcAEP, getTurbLocYAML, getWindRoseYAML, getTurbAtrbtYAML
 import multiprocessing
 import csv
-from skopt.utils import use_named_args
 import time
 
 # Definindo o tipo de problema (Maximização)
@@ -77,12 +76,12 @@ def evaluate(individual):
     return fitness,
 
 # Parâmetros para testar
-#cxpb_values = [i / 100.0 for i in range(50, 81, 5)]    # 0.50 a 0,80
+cxpb_values = [i / 100.0 for i in range(50, 81, 5)]    # 0.50 a 0,80
 indpb_values = [i / 100.0 for i in range(50, 101, 5)]    # 0.55 a 0.85
 mutpb_values = [i / 100.0 for i in range(65, 101, 5)]    # 0.40 a 0.55
 
 # Função principal do algoritmo genético
-def main(indpb, mutpb):
+def main(indpb, mutpb, cxpb):
     random.seed(42)
 
     pop = 300
@@ -90,7 +89,7 @@ def main(indpb, mutpb):
     alpha = 0.5
     gen = 300
     sigma = 100
-    cxpb = 0.8
+    #cxpb = 0.8
 
     pool = multiprocessing.Pool()
     toolbox.register("map", pool.map)
@@ -148,7 +147,7 @@ print(f"AEP = {best_result[2]:.6f} MWh")
 #1506388G
 #1480850G
 
-#1479753 4° lugar
+#1479753GF 4° lugar
 
 #1476689G
 #1455075GF
