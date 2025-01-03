@@ -14,7 +14,7 @@ pyparsing==3.1.4
 pyswarm==0.6
 python-dateutil==2.9.0.post0
 pytz==2024.2
-PyYAML @ file:///work/perseverance-python-buildout/croot/pyyaml_1698849903511/work
+PyYAML
 scikit-learn==1.5.1
 scikit-optimize==0.10.2
 scipy==1.14.1
@@ -24,3 +24,4 @@ six==1.16.0
 threadpoolctl==3.5.0
 tzdata==2024.2
 wheel==0.43.0
+shapely
