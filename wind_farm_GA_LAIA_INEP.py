@@ -16,12 +16,12 @@ creator.create("Individual", list, fitness=creator.FitnessMax)
 toolbox = base.Toolbox()
 
 # Parâmetros
-IND_SIZE = 100  # Número de turbinas
+IND_SIZE = 60  # Número de turbinas
 N_DIAMETERS = 2*240  # 2 diâmetros de distância no mínimo
 
 # Definir polígonos (exemplo com dois polígonos)
 POLYGONS = [
-    Polygon([(-2000, -2000), (-20, -1500), (1500, -500), (1250, -20), (1200, 1000), (-1500, 700)]),
+    Polygon([(0, 0), (14500, 0), (22740, 16000), (8240, 16000)]),
     #Polygon([(315, -10), (965, -20), (1200, 1000), (315, 1200)]),
 ]
 
@@ -31,7 +31,7 @@ def create_individual_from_coordinates(coords):
     return individual
 
 # Carregando coordenadas iniciais
-initial_coordinates, _, _ = getTurbLocYAML('chute_inicial_poligonos.yaml')
+initial_coordinates, _, _ = getTurbLocYAML('iea37-teste_LAIA_60_n_otimizado.yaml')
 toolbox.register("individual", create_individual_from_coordinates, coords=initial_coordinates.tolist())
 toolbox.register("population", tools.initRepeat, list, toolbox.individual)
 
@@ -54,7 +54,7 @@ def enforce_polygons(individual):
 # Função de avaliação
 def evaluate(individual):
     # Carregando os dados dos arquivos YAML
-    turb_coords, fname_turb, fname_wr = getTurbLocYAML("chute_inicial_poligonos.yaml")
+    turb_coords, fname_turb, fname_wr = getTurbLocYAML("iea37-teste_LAIA_60_n_otimizado.yaml")
     turb_ci, turb_co, rated_ws, rated_pwr, turb_diam = getTurbAtrbtYAML("iea37-15mw.yaml")
     wind_dir, wind_freq, wind_speed = getWindRoseYAML("iea37-windrose.yaml")
 
@@ -67,7 +67,7 @@ def evaluate(individual):
     
     for x, y in turb_coords:
         if not is_within_polygons(x, y, POLYGONS):
-            penalty_out_of_polygon += 1e6  # Penalização ajustada para pontos fora dos polígonos
+            penalty_out_of_polygon += 1e6  
 
     # Penalizar turbinas muito próximas
     min_distance = N_DIAMETERS
@@ -75,7 +75,7 @@ def evaluate(individual):
         for j in range(i + 1, len(turb_coords)):
             dist = np.linalg.norm(turb_coords[i] - turb_coords[j])
             if dist < min_distance:
-                penalty_close_turbines += 1e6  # Penalização ajustada para turbinas muito próximas
+                penalty_close_turbines += 1e6  
     
     # Calculando o AEP
     aep = calcAEP(turb_coords, wind_freq, wind_speed, wind_dir, turb_diam, turb_ci, turb_co, rated_ws, rated_pwr)
@@ -96,7 +96,7 @@ def mutate(individual, mu, sigma, indpb):
 
 # Operadores genéticos
 toolbox.register("mate", tools.cxBlend, alpha=0.5)
-toolbox.register("mutate", mutate, mu=0, sigma=600, indpb=0.55) 
+toolbox.register("mutate", mutate, mu=0, sigma=150, indpb=0.55) 
 toolbox.register("select", tools.selTournament, tournsize=5)
 toolbox.register("evaluate", evaluate)
 

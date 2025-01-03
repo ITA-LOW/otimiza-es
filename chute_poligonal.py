@@ -49,17 +49,17 @@ def enforce_min_distance(points, min_distance):
 
 # Definir os polígonos usando Shapely
 POLYGONS = [
-    Polygon([(-1500, -1500), (-20, -315), (-10, 315), (-965, 315)]),
-    Polygon([(315, -10), (965, -20), (1200, 1000), (315, 1200)])
+    Polygon([(0, 0), (14500, 0), (22740, 16000), (8240, 16000)]),
+    #Polygon([(315, -10), (965, -20), (1200, 1000), (315, 1200)])
 ]
 
 # Parâmetros
-total_turbines = 8  # Quantidade total de turbinas
+total_turbines = 100  # Quantidade total de turbinas
 boundary_percentage = 0.45  # Percentual de turbinas no perímetro
 num_boundary_points = int(total_turbines * boundary_percentage)
 num_internal_points = total_turbines - num_boundary_points
 
-turbine_radius = 50  # Raio da turbina
+turbine_radius = 240  # Raio da turbina
 dx = dy = 2 * turbine_radius  # Espaçamento da grade
 theta = np.radians(15)  # Rotação de 15 graus
 
