@@ -16,7 +16,7 @@ creator.create("Individual", list, fitness=creator.FitnessMax)
 toolbox = base.Toolbox()
 
 # Parâmetros
-IND_SIZE = 60  # Número de turbinas
+IND_SIZE = 100  # Número de turbinas
 N_DIAMETERS = 2*240  # 2 diâmetros de distância no mínimo
 
 # Definir polígonos (exemplo com dois polígonos)
@@ -31,7 +31,7 @@ def create_individual_from_coordinates(coords):
     return individual
 
 # Carregando coordenadas iniciais
-initial_coordinates, _, _ = getTurbLocYAML('coordenadas_dos_testes/iea37-teste_LAIA_60_n_otimizado.yaml')
+initial_coordinates, _, _ = getTurbLocYAML('iea37-teste_LAIA_100_n_otimizado.yaml')
 toolbox.register("individual", create_individual_from_coordinates, coords=initial_coordinates.tolist())
 toolbox.register("population", tools.initRepeat, list, toolbox.individual)
 
@@ -54,7 +54,7 @@ def enforce_polygons(individual):
 # Função de avaliação
 def evaluate(individual):
     # Carregando os dados dos arquivos YAML
-    turb_coords, fname_turb, fname_wr = getTurbLocYAML("coordenadas_dos_testes/iea37-teste_LAIA_60_n_otimizado.yaml")
+    turb_coords, fname_turb, fname_wr = getTurbLocYAML("iea37-teste_LAIA_100_n_otimizado.yaml")
     turb_ci, turb_co, rated_ws, rated_pwr, turb_diam = getTurbAtrbtYAML("iea37-15mw.yaml")
     wind_dir, wind_freq, wind_speed = getWindRoseYAML("iea37-windrose_LAIA.yaml")
 
@@ -123,7 +123,7 @@ def main():
     max_fitness_data = []
 
     # Loop principal de otimização
-    pop, logbook = algorithms.eaSimple(pop, toolbox, cxpb=0.95, mutpb=0.55, ngen=50, 
+    pop, logbook = algorithms.eaSimple(pop, toolbox, cxpb=0.95, mutpb=0.55, ngen=200, 
                                         stats=stats, halloffame=hof, verbose=True)
     
     # Fechando o pool para liberar os recursos

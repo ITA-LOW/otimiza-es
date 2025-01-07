@@ -40,14 +40,14 @@ definitions:
         properties:
           type: array
           items:
-            - $ref: "iea37-windrose.yaml"       # Reference for the .yaml containing the wind rose
+            - $ref: "iea37-windrose_LAIA.yaml"       # Reference for the .yaml containing the wind rose
 
       annual_energy_production:
         type: number
         description: binned and total (default) annual energy production for a wind plant given a layout and binned wind rose
-        binned: [ 147518.71079,  166353.20257,  181798.28834,  252669.81916,
-                  317443.66670,  477816.71573,  645888.86689,  870257.45076,
-                  369849.64800,  262658.09168,  244169.95504,  581903.74391,
-                  1072121.98641,  337706.41948,  207070.47167,  157135.91379]
-        default: 6292362.95092
+        binned: [ 590074.84317, 1871473.52894, 1253781.29891, 1052790.91318,
+                  403103.06882,  220530.79187,  129177.77338,   71332.57793,
+                  58706.29333,  138241.10089,   62607.68078,   70108.88481,
+                  50334.36556,  146828.87803,   64709.52240,   71425.41536]
+        default: 6255226.93735
         units: MWh

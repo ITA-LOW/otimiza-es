@@ -39,9 +39,9 @@ theta = np.radians(72)
 # Parâmetros 
 total_turbines = 100  # Total de turbinas
 boundary_percentage = 0.35  # Percentual de turbinas no perímetro
-dx, dy = 2200, 1580  # Espaçamento da grade
-b = 50  # Deslocamento entre 2 linhas consecutivas
-theta = np.radians(75)  # Ângulo de rotação
+dx, dy = 2250, 1500  # Espaçamento da grade
+b = 100  # Deslocamento entre 2 linhas consecutivas
+theta = np.radians(72)  # Ângulo de rotação
 num_boundary_points = int(total_turbines * boundary_percentage)
 num_inner_turbines = total_turbines - num_boundary_points
 turbine_diameter = 240
