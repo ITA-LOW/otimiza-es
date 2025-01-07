@@ -2,6 +2,51 @@ import numpy as np
 import matplotlib.pyplot as plt
 from shapely.geometry import Polygon, Point
 
+
+"""
+Esse código cria um indivíduo que serve de base pra população. Ele a príncipio está programado para otimizar o espaço mas não a geração
+de energia. Altere os parâmetros para gerar o indivíduo de cada caso (60, 80, 100). 
+
+Parâmetros
+total_turbines -> máximo de turbinas que serão posicionadas
+boundary_percentage -> percentual das turbinas que serão posicionadas na borda da região de otimização
+dx, dy -> espaçamento da grade interna
+b -> deslocamento (offset) entre 2 linhas consecutivas
+theta -> rotação da grade, ou seja, de todo o parque eólico
+
+Indivíduo com 60 turbinas
+total_turbines = 60 
+boundary_percentage = 0.35  
+dx, dy = 2200, 2300  
+b = 100  
+theta = np.radians(0) 
+
+Indivíduo com 80 turbinas
+total_turbines = 80  
+boundary_percentage = 0.35  
+dx, dy = 2250, 1900  
+b = 100  
+theta = np.radians(15)
+
+Indivíduo com 100 turbinas
+total_turbines = 100  
+boundary_percentage = 0.35  
+dx, dy = 2250, 1500 
+b = 100  
+theta = np.radians(72)
+
+"""
+# Parâmetros 
+total_turbines = 100  # Total de turbinas
+boundary_percentage = 0.35  # Percentual de turbinas no perímetro
+dx, dy = 2200, 1580  # Espaçamento da grade
+b = 50  # Deslocamento entre 2 linhas consecutivas
+theta = np.radians(75)  # Ângulo de rotação
+num_boundary_points = int(total_turbines * boundary_percentage)
+num_inner_turbines = total_turbines - num_boundary_points
+turbine_diameter = 240
+
+
 # Função para distribuir pontos na borda de um polígono
 def distribute_boundary_points(polygon, num_points):
     coords = np.array(polygon.exterior.coords)
@@ -57,16 +102,6 @@ def generate_inner_grid(polygon, dx, dy, b, theta, num_turbines):
 POLYGONS = [
     Polygon([(0, 0), (14500, 0), (22740, 16000), (8240, 16000)])  # Substitua com seu polígono
 ]
-
-# Parâmetros definidos pelo usuário
-total_turbines = 60  # Total de turbinas
-boundary_percentage = 0.35  # Percentual de turbinas no perímetro
-dx, dy = 2200, 2300  # Espaçamento da grade
-b = 100  # Deslocamento entre 2 linhas consecutivas
-theta = np.radians(0)  # Ângulo de rotação
-num_boundary_points = int(total_turbines * boundary_percentage)
-num_inner_turbines = total_turbines - num_boundary_points
-turbine_diameter = 240
 
 # Gerar turbinas dentro de cada polígono
 boundary_points_list = []
@@ -131,78 +166,3 @@ print("As turbinas estão corretamente espaçadas?", result)
 
 print(len(xc))
 print(len(yc))
-
-
-""" import numpy as np
-import matplotlib.pyplot as plt
-from shapely.geometry import Polygon, Point
-
-# Function to generate a rotated grid of points within a polygon
-def generate_inner_grid(polygon, dx, dy, b, theta, num_turbines):
-    # Determine bounds of the polygon
-    xmin, ymin, xmax, ymax = polygon.bounds
-    center_x, center_y = (xmin + xmax) / 2, (ymin + ymax) / 2
-
-    # Generate grid points
-    x_coords = np.arange(xmin, xmax, dx)
-    y_coords = np.arange(ymin, ymax, dy)
-    grid = np.array(np.meshgrid(x_coords, y_coords)).T.reshape(-1, 2)
-
-    # Apply offset and rotation
-    grid[:, 0] += (np.arange(len(grid)) % 2) * b
-    rotation_matrix = np.array([[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)]]);
-    rotated_grid = np.dot(grid - [center_x, center_y], rotation_matrix.T) + [center_x, center_y]
-
-    # Filter points inside the polygon
-    inside_points = np.array([p for p in rotated_grid if polygon.contains(Point(p))])
-
-    # Limit the number of turbines to the user-defined value
-    return inside_points[:num_turbines]
-
-# Define example polygons
-POLYGONS = [
-    Polygon([(-2000, -2000), (-20, -1500), (1500, -500), (1250, -20), (1200, 1000), (-1500, 700)]),
-    #Polygon([(315, -10), (965, -20), (1200, 1000), (315, 1200)])(-10, 315)
-]
-
-# User-defined parameters
-total_turbines = 100  # Total number of turbines
-dx, dy = 200, 130  # Grid spacing
-b = 10  # Offset distance
-theta = np.radians(75)  # Rotation angle
-
-# Calculate areas of polygons and determine the number of turbines for each
-areas = [polygon.area for polygon in POLYGONS]
-total_area = sum(areas)
-turbines_per_polygon = [int(total_turbines * (area / total_area)) for area in areas]
-
-# Adjust for rounding differences to ensure the total number of turbines matches
-turbines_per_polygon[-1] += total_turbines - sum(turbines_per_polygon)
-
-# Generate turbines within each polygon
-grid_points_inside_list = []
-for polygon, num_turbines in zip(POLYGONS, turbines_per_polygon):
-    grid_points_inside = generate_inner_grid(polygon, dx, dy, b, theta, num_turbines)
-    grid_points_inside_list.append(grid_points_inside)
-
-# Plot the result
-plt.figure(figsize=(10, 10))
-for polygon, grid_points_inside in zip(POLYGONS, grid_points_inside_list):
-    x, y = polygon.exterior.xy
-    plt.plot(x, y, 'k-', label='Boundary')
-    plt.scatter(grid_points_inside[:, 0], grid_points_inside[:, 1], color='blue', label='Grid Turbines')
-
-plt.grid(True)
-plt.gca().set_aspect('equal', adjustable='box')
-plt.show()
-
-xc = []
-yc = []
-
-for grid in grid_points_inside_list:
-    xc.extend([float(val) for val in grid[:, 0]])  # Converte cada elemento para float
-    yc.extend([float(val) for val in grid[:, 1]])  # Converte cada elemento para float
-
-# Agora os valores serão exibidos no formato correto
-print("xc:", xc)
-print("yc:", yc) """
