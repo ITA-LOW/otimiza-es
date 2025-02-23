@@ -6,6 +6,7 @@ from iea37_aepcalc import calcAEP, getTurbLocYAML, getWindRoseYAML, getTurbAtrbt
 from plot import plot_solution_polygons, plot_fitness, save_logbook_to_csv
 import multiprocessing
 import time
+import csv
 from shapely.geometry import Point, Polygon
 
 # Definindo o tipo de problema (Maximização)
@@ -31,7 +32,7 @@ def create_individual_from_coordinates(coords):
     return individual
 
 # Carregando coordenadas iniciais
-initial_coordinates, _, _ = getTurbLocYAML('iea37-teste_LAIA_100_n_otimizado.yaml')
+initial_coordinates, _, _ = getTurbLocYAML('Testes_artigo_2/caso_100_turbinas/iea37-teste_LAIA_100_n_otimizado.yaml')
 toolbox.register("individual", create_individual_from_coordinates, coords=initial_coordinates.tolist())
 toolbox.register("population", tools.initRepeat, list, toolbox.individual)
 
@@ -54,7 +55,7 @@ def enforce_polygons(individual):
 # Função de avaliação
 def evaluate(individual):
     # Carregando os dados dos arquivos YAML
-    turb_coords, fname_turb, fname_wr = getTurbLocYAML("iea37-teste_LAIA_100_n_otimizado.yaml")
+    turb_coords, fname_turb, fname_wr = getTurbLocYAML("Testes_artigo_2/caso_100_turbinas/iea37-teste_LAIA_100_n_otimizado.yaml")
     turb_ci, turb_co, rated_ws, rated_pwr, turb_diam = getTurbAtrbtYAML("iea37-15mw.yaml")
     wind_dir, wind_freq, wind_speed = getWindRoseYAML("iea37-windrose_LAIA.yaml")
 
@@ -100,66 +101,69 @@ toolbox.register("mutate", mutate, mu=0, sigma=150, indpb=0.55)
 toolbox.register("select", tools.selTournament, tournsize=5)
 toolbox.register("evaluate", evaluate)
 
+# Parâmetros para testar
+cxpb_values = [i / 100.0 for i in range(50, 81, 5)]    # 0.50 a 0,80
+indpb_values = [i / 100.0 for i in range(50, 101, 5)]    # 0.55 a 0.85
+mutpb_values = [i / 100.0 for i in range(65, 101, 5)]    # 0.40 a 0.55
 
 # Configuração da otimização
-def main():
+def main(indpb, mutpb, cxpb):
     random.seed(42)
 
-    start_time = time.time()
+    pop = 300
+    torneio = 5
+    alpha = 0.5
+    gen = 300
+    sigma = 100
 
-    # Criação do pool de processos
     pool = multiprocessing.Pool()
-    
-    # Configura o ambiente DEAP
-    toolbox.register("map", pool.map)  
-    pop = toolbox.population(n=300)  # Tamanho da população
-    hof = tools.HallOfFame(1)  # Manter o melhor indivíduo
+    toolbox.register("map", pool.map)
+    toolbox.register("mate", tools.cxBlend, alpha=alpha)
+    toolbox.register("mutate", mutate, mu=0, sigma=sigma, indpb=indpb) 
+    toolbox.register("select", tools.selTournament, tournsize=torneio)
+    toolbox.register("evaluate", evaluate)
+
+    pop = toolbox.population(n=pop)
+    hof = tools.HallOfFame(1)
     stats = tools.Statistics(lambda ind: ind.fitness.values)
     stats.register("avg", np.mean)
     stats.register("std", np.std)
     stats.register("min", np.min)
     stats.register("max", np.max)
 
-    generation_data = []
-    max_fitness_data = []
-
-    # Loop principal de otimização
-    pop, logbook = algorithms.eaSimple(pop, toolbox, cxpb=0.95, mutpb=0.55, ngen=200, 
-                                        stats=stats, halloffame=hof, verbose=True)
+    pop, logbook = algorithms.eaSimple(pop, toolbox, cxpb=cxpb, mutpb=mutpb, ngen=gen, 
+                                        stats=stats, halloffame=hof, verbose=False)
     
-    # Fechando o pool para liberar os recursos
     pool.close()
     pool.join()
 
-    # Salvando a aptidão máxima por geração, todas as informaçoes do verbose estao aqui
-    for record in logbook:
-        generation_data.append(record['gen'])
-        max_fitness_data.append(record['max'])
-
     best_individual = hof[0]
     best_coords = np.array(best_individual).reshape((IND_SIZE, 2))
+    aep = evaluate(best_individual)[0]
     
-    x_coords = best_coords[:, 0].tolist()
-    y_coords = best_coords[:, 1].tolist()
 
-    print("Melhor solução:")
-    print("Coordenadas X:", x_coords)
-    print("Coordenadas Y:", y_coords)
+    return aep
 
-    # Plotar a solução e a evolução da aptidão
-    #plot_solution_circle(x_coords, y_coords, radius=CIRCLE_RADIUS)
-    plot_solution_polygons(x_coords, y_coords, POLYGONS)
-    plot_fitness(generation_data[3:], max_fitness_data[3:]) # começo a partir do 3 pois os valores de fit iniciais são tão baixos que estragam o grafico
-    #save_logbook_to_csv(logbook, "set_19") essa linha é util para plotar multiplos fitness no mesmo grafico
+# Testando combinações de parâmetros
+results = []
+for indpb in indpb_values:
+    for mutpb in mutpb_values:
+        for cxpb in cxpb_values:
+            aep = main(indpb, mutpb, cxpb)
+            results.append((indpb, mutpb, cxpb, aep))
+            print(f"INDPB: {indpb:.2f}, MUTPB: {mutpb:.2f}, CXPB: {cxpb:.2f}, AEP: {aep:.2f} MWh")
+            # Salvando os resultados em um arquivo CSV
+            with open('results.csv', 'w', newline='') as csvfile:
+                writer = csv.writer(csvfile)
+                writer.writerow(['INDPB', 'MUTPB', 'CXPB' 'AEP'])
+                writer.writerows(results)
 
-    end_time = time.time()
-    total_min = int((end_time - start_time)//60)
-    total_sec = int((end_time - start_time)%60)
-    print(f"Tempo de computação: {total_min}:{total_sec}")
+# Exibindo os melhores resultados
+best_result = max(results, key=lambda x: x[2])
+print("Melhores parâmetros sugeridos:")
+print(f"cxpb = {best_result[0]:.2f},")
+print(f"indpb = {best_result[0]:.2f}")
+print(f"mutpb = {best_result[1]:.2f}")
+print(f"AEP = {best_result[2]:.6f} MWh")
 
-
-    return pop, stats, hof
-
-if __name__ == "__main__":
-    pop, stats, hof = main()
 
