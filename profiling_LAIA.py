@@ -1,3 +1,4 @@
+import sys
 import yaml
 import numpy as np
 from deap import base, creator, tools, algorithms
@@ -17,14 +18,13 @@ toolbox = base.Toolbox()
 
 # Parâmetros
 IND_SIZE = 60  # Número de turbinas
-N_DIAMETERS = 2*240  # 2 diâmetros de distância no mínimo
+N_DIAMETERS = 2 * 240  # 2 diâmetros de distância no mínimo
 
 # Definir polígonos
 POLYGONS = [
     Polygon([(0, 0), (14500, 0), (22740, 16000), (8240, 16000)]),
-    #Polygon([(315, -10), (965, -20), (1200, 1000), (315, 1200)]),
+    # Polygon([(315, -10), (965, -20), (1200, 1000), (315, 1200)]),
 ]
-
 
 def create_individual_from_coordinates(coords):
     individual = creator.Individual(np.array(coords).flatten().tolist())
@@ -38,13 +38,7 @@ toolbox.register("population", tools.initRepeat, list, toolbox.individual)
 # Função para verificar se um ponto está dentro de qualquer polígono
 def is_within_polygons(x, y, polygons):
     point = Point(x, y)
-    return any(polygon.contains(point) for polygon in polygons)
-
-
-def is_within_polygon_vectorized(x_array, y_array, polygon):
-    points = [Point(x, y) for x, y in zip(x_array, y_array)]
-    return np.array([polygon.contains(point) for point in points], dtype=bool)
-
+    return any(polygon.contains(point) for polygon in polygons) 
 
 # Ajustar coordenadas para ficar dentro do polígono
 def enforce_polygons(individual):
@@ -58,45 +52,12 @@ def enforce_polygons(individual):
             individual[2 * i], individual[2 * i + 1] = projected_point.x, projected_point.y
 
 # Função de avaliação
-def evaluate(individual):
-    # Carregando os dados dos arquivos YAML
-    turb_coords, fname_turb, fname_wr = getTurbLocYAML("Testes_artigo_2/caso_60_turbinas/iea37-teste_LAIA_60_n_otimizado.yaml")
-    turb_ci, turb_co, rated_ws, rated_pwr, turb_diam = getTurbAtrbtYAML("iea37-15mw.yaml")
-    wind_dir, wind_freq, wind_speed = getWindRoseYAML("iea37-windrose_LAIA.yaml")
-
-    # Convertendo o indivíduo para coordenadas de turbinas
-    turb_coords = np.array(individual).reshape((IND_SIZE, 2))
-    
-   
-    penalty_out_of_polygon = 0
-    penalty_close_turbines = 0
-    
-    for x, y in turb_coords:
-        if not is_within_polygons(x, y, POLYGONS):
-            penalty_out_of_polygon += 1e6  
-
-    # Penalizar turbinas muito próximas
-    min_distance = N_DIAMETERS
-    for i in range(len(turb_coords)):
-        for j in range(i + 1, len(turb_coords)):
-            dist = np.linalg.norm(turb_coords[i] - turb_coords[j])
-            if dist < min_distance:
-                penalty_close_turbines += 1e6  
-    
-    # Calculando o AEP
-    aep = calcAEP(turb_coords, wind_freq, wind_speed, wind_dir, turb_diam, turb_ci, turb_co, rated_ws, rated_pwr)
-    
-    # Penalizando a solução se tiver turbinas fora do círculo ou muito próximas
-    fitness = np.sum(aep) - penalty_out_of_polygon - penalty_close_turbines
-    
-    return fitness,
-
 # Pré-carrega os dados fora da função evaluate:
 TURB_LOC_DATA = getTurbLocYAML("Testes_artigo_2/caso_60_turbinas/iea37-teste_LAIA_60_n_otimizado.yaml")
 TURB_ATRBT_DATA = getTurbAtrbtYAML("iea37-15mw.yaml")
 WIND_ROSE_DATA = getWindRoseYAML("iea37-windrose_LAIA.yaml")
 
-def evaluate_otimizado(individual, turb_loc_data=TURB_LOC_DATA,
+def evaluate(individual, turb_loc_data=TURB_LOC_DATA,
              turb_atrbt_data=TURB_ATRBT_DATA,
              wind_rose_data=WIND_ROSE_DATA):
     # Desempacota os dados previamente carregados
@@ -112,8 +73,9 @@ def evaluate_otimizado(individual, turb_loc_data=TURB_LOC_DATA,
 
     # Penaliza turbinas fora dos polígonos
     # Se is_within_polygons aceita arrays, pode ser vetorizada
-    mask_inside = is_within_polygon_vectorized(turb_coords[:, 0], turb_coords[:, 1], POLYGONS[0])
-    penalty_out_of_polygon = np.sum(~mask_inside) * 1e6
+    for x, y in turb_coords:
+        if not is_within_polygons(x, y, POLYGONS):
+            penalty_out_of_polygon += 1e6  
 
     # Penaliza turbinas muito próximas: vetorize o cálculo das distâncias
     # Utiliza a técnica de matriz de distância (apenas a parte superior, sem repetição)
@@ -150,20 +112,20 @@ def mutate(individual, mu, sigma, indpb):
 toolbox.register("mate", tools.cxBlend, alpha=0.5)
 toolbox.register("mutate", mutate, mu=0, sigma=150, indpb=0.55) 
 toolbox.register("select", tools.selTournament, tournsize=5)
-toolbox.register("evaluate", evaluate_otimizado)
-
+toolbox.register("evaluate", evaluate)
 
 # Configuração da otimização
-def main():
+def main(use_parallel=True):
     random.seed(42)
-
     start_time = time.time()
+
+    # Se estiver usando processamento paralelo, cria o pool; senão, usa o map built-in.
+    if use_parallel:
+        pool = multiprocessing.Pool()
+        toolbox.register("map", pool.map)
+    else:
+        toolbox.register("map", map)
     
-    # Criação do pool de processos
-    pool = multiprocessing.Pool()
-    
-    # Configura o ambiente DEAP
-    toolbox.register("map", pool.map)  
     pop = toolbox.population(n=300)  # Tamanho da população
     hof = tools.HallOfFame(1)  # Manter o melhor indivíduo
     stats = tools.Statistics(lambda ind: ind.fitness.values)
@@ -179,14 +141,14 @@ def main():
     pop, logbook = algorithms.eaSimple(pop, toolbox, cxpb=0.95, mutpb=0.55, ngen=50, 
                                         stats=stats, halloffame=hof, verbose=True)
     
-    # Fechando o pool para liberar os recursos
-    pool.close()
-    pool.join()
+    if use_parallel:
+        pool.close()
+        pool.join()
 
-    # Salvando a aptidão máxima por geração, todas as informaçoes do verbose estao aqui
-    #for record in logbook:
-    #    generation_data.append(record['gen'])
-    #    max_fitness_data.append(record['max'])
+    # Salvando a aptidão máxima por geração
+    for record in logbook:
+        generation_data.append(record['gen'])
+        max_fitness_data.append(record['max'])
 
     best_individual = hof[0]
     best_coords = np.array(best_individual).reshape((IND_SIZE, 2))
@@ -195,23 +157,26 @@ def main():
     y_coords = best_coords[:, 1].tolist()
 
     print("Melhor solução:")
-    print("xc:", x_coords)
-    print("yc:", y_coords)
+    print("Coordenadas X:", x_coords)
+    print("Coordenadas Y:", y_coords)
 
-    # Plotar a solução e a evolução da aptidão
-    #plot_solution_circle(x_coords, y_coords, radius=CIRCLE_RADIUS)
-    #plot_solution_polygons(x_coords, y_coords, POLYGONS)
-    #plot_fitness(generation_data[3:], max_fitness_data[3:]) # começo a partir do 3 pois os valores de fit iniciais são tão baixos que estragam o grafico
-    #save_logbook_to_csv(logbook, "set_19") essa linha é util para plotar multiplos fitness no mesmo grafico
+    # Aqui você pode descomentar as funções de plot se desejar visualizar os resultados
+    # plot_solution_polygons(x_coords, y_coords, POLYGONS)
+    # plot_fitness(generation_data[3:], max_fitness_data[3:])
+    # save_logbook_to_csv(logbook, "set_19")
 
     end_time = time.time()
-    total_min = int((end_time - start_time)//60)
-    total_sec = int((end_time - start_time)%60)
+    total_min = int((end_time - start_time) // 60)
+    total_sec = int((end_time - start_time) % 60)
     print(f"Tempo de computação: {total_min}:{total_sec}")
-
 
     return pop, stats, hof
 
 if __name__ == "__main__":
-    pop, stats, hof = main()
-
+    # Se "--profile" for passado na linha de comando, desabilita o processamento paralelo para evitar problemas de pickling.
+    use_parallel = True
+    if "--profile" in sys.argv:
+        use_parallel = False
+        print("Executando sem multiprocessing (modo profiling).")
+    
+    pop, stats, hof = main(use_parallel)
