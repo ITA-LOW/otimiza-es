@@ -95,9 +95,9 @@ def evaluate_otimizado(individual, turb_loc_data=TURB_LOC_DATA,
     return fitness,
 
 # Parâmetros para testar
-cxpb_values = [i / 100.0 for i in range(95, 101, 5)]    # 0.50 a 0,80
-indpb_values = [i / 100.0 for i in range(95, 101, 5)]    # 0.55 a 0.85
-mutpb_values = [i / 100.0 for i in range(95, 101, 5)]    # 0.40 a 0.55
+cxpb_values = [i / 100.0 for i in range(5, 101, 5)]    # 0.50 a 0,80
+indpb_values = [i / 100.0 for i in range(5, 101, 5)]    # 0.55 a 0.85
+mutpb_values = [i / 100.0 for i in range(5, 101, 5)]    # 0.40 a 0.55
 
 # Função principal do algoritmo genético
 def main(indpb, mutpb, cxpb):
@@ -107,7 +107,7 @@ def main(indpb, mutpb, cxpb):
     pop = 300
     torneio = 5
     alpha = 0.5
-    gen = 50
+    gen = 300
     sigma = 100
     #cxpb = 0.8
 
@@ -136,10 +136,7 @@ def main(indpb, mutpb, cxpb):
     #best_coords = np.array(best_individual).reshape((IND_SIZE, 2))
     aep = evaluate_otimizado(best_individual)[0]
     
-
     return aep
-
-
 
 # Testando combinações de parâmetros
 results = []
