@@ -95,18 +95,19 @@ def evaluate_otimizado(individual, turb_loc_data=TURB_LOC_DATA,
     return fitness,
 
 # Parâmetros para testar
-cxpb_values = [i / 100.0 for i in range(5, 101, 5)]    # 0.50 a 0,80
-indpb_values = [i / 100.0 for i in range(5, 101, 5)]    # 0.55 a 0.85
-mutpb_values = [i / 100.0 for i in range(5, 101, 5)]    # 0.40 a 0.55
+cxpb_values = [i / 100.0 for i in range(95, 101, 5)]    # 0.50 a 0,80
+indpb_values = [i / 100.0 for i in range(95, 101, 5)]    # 0.55 a 0.85
+mutpb_values = [i / 100.0 for i in range(95, 101, 5)]    # 0.40 a 0.55
 
 # Função principal do algoritmo genético
 def main(indpb, mutpb, cxpb):
+
     random.seed(42)
 
     pop = 300
     torneio = 5
     alpha = 0.5
-    gen = 300
+    gen = 50
     sigma = 100
     #cxpb = 0.8
 
@@ -132,7 +133,7 @@ def main(indpb, mutpb, cxpb):
     pool.join()
 
     best_individual = hof[0]
-    best_coords = np.array(best_individual).reshape((IND_SIZE, 2))
+    #best_coords = np.array(best_individual).reshape((IND_SIZE, 2))
     aep = evaluate_otimizado(best_individual)[0]
     
 
@@ -142,6 +143,7 @@ def main(indpb, mutpb, cxpb):
 
 # Testando combinações de parâmetros
 results = []
+start_time = time.time()
 for indpb in indpb_values:
     for mutpb in mutpb_values:
         for cxpb in cxpb_values:
@@ -153,6 +155,10 @@ for indpb in indpb_values:
                 writer = csv.writer(csvfile)
                 writer.writerow(['INDPB', 'MUTPB', 'CXPB', 'AEP'])
                 writer.writerows(results)
+end_time = time.time()
+total_min = int((end_time - start_time)//60)
+total_sec = int((end_time - start_time)%60)
+print(f"\nTempo de computação: {total_min}:{total_sec}")
 
 # Exibindo os melhores resultados
 best_result = max(results, key=lambda x: x[3])
