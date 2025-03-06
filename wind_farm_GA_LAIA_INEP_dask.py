@@ -21,11 +21,6 @@ client = Client("tcp://192.168.1.8:8786")
 client.upload_file('iea37_aepcalc.py')
 print(client)
 
-# Função de mapeamento usando Dask
-def dask_map(func, iterable):
-    futures = [client.submit(func, item) for item in iterable]
-    return client.gather(futures)
-
 # Definindo o tipo de problema (Maximização)
 creator.create("FitnessMax", base.Fitness, weights=(1.0,))
 creator.create("Individual", list, fitness=creator.FitnessMax)
@@ -179,10 +174,11 @@ def main():
     start_time = time.time()
     
     # Criação do pool de processos
-    #pool = multiprocessing.Pool()
+    pool = multiprocessing.Pool()
     
     # Configura o ambiente DEAP
-    toolbox.register("map", lambda func, *args: client.gather(client.map(func, *args)))  
+    #toolbox.register("map", lambda func, *args: client.gather(client.map(func, *args)))  
+    toolbox.register("map", pool.map)  
     pop = toolbox.population(n=300)  # Tamanho da população
     hof = tools.HallOfFame(1)  # Manter o melhor indivíduo
     stats = tools.Statistics(lambda ind: ind.fitness.values)
@@ -199,8 +195,8 @@ def main():
                                         stats=stats, halloffame=hof, verbose=True)
     
     # Fechando o pool para liberar os recursos
-    #pool.close()
-    #pool.join()
+    pool.close()
+    pool.join()
 
     # Salvando a aptidão máxima por geração, todas as informaçoes do verbose estao aqui
     #for record in logbook:
