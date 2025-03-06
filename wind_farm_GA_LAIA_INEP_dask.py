@@ -1,3 +1,10 @@
+"""
+1 - rode dask scheduler -> vai aparecer um ip, substitua no ip abaixo
+2 - nas duas máquinas rode dask worker tcp://192.168.1.X:8786 --nworkers 24 --nthreads 1
+3 - execute o código 
+"""
+
+
 import yaml
 import numpy as np
 from deap import base, creator, tools, algorithms
@@ -172,7 +179,7 @@ def main():
     start_time = time.time()
     
     # Criação do pool de processos
-    pool = multiprocessing.Pool()
+    #pool = multiprocessing.Pool()
     
     # Configura o ambiente DEAP
     toolbox.register("map", lambda func, *args: client.gather(client.map(func, *args)))  
@@ -192,23 +199,23 @@ def main():
                                         stats=stats, halloffame=hof, verbose=True)
     
     # Fechando o pool para liberar os recursos
-    pool.close()
-    pool.join()
+    #pool.close()
+    #pool.join()
 
     # Salvando a aptidão máxima por geração, todas as informaçoes do verbose estao aqui
     #for record in logbook:
     #    generation_data.append(record['gen'])
     #    max_fitness_data.append(record['max'])
 
-    best_individual = hof[0]
-    best_coords = np.array(best_individual).reshape((IND_SIZE, 2))
+    #best_individual = hof[0]
+    #best_coords = np.array(best_individual).reshape((IND_SIZE, 2))
     
-    x_coords = best_coords[:, 0].tolist()
-    y_coords = best_coords[:, 1].tolist()
+    #x_coords = best_coords[:, 0].tolist()
+    #y_coords = best_coords[:, 1].tolist()
 
-    print("Melhor solução:")
-    print("xc:", x_coords)
-    print("yc:", y_coords)
+    #print("Melhor solução:")
+    #print("xc:", x_coords)
+    #print("yc:", y_coords)
 
     # Plotar a solução e a evolução da aptidão
     #plot_solution_circle(x_coords, y_coords, radius=CIRCLE_RADIUS)
