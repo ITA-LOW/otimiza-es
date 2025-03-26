@@ -75,6 +75,51 @@ def evaluate(individual):
     
     return fitness,
 
+# Pré-carrega os dados fora da função evaluate:
+TURB_LOC_DATA = getTurbLocYAML("iea37-ex64.yaml")
+TURB_ATRBT_DATA = getTurbAtrbtYAML("iea37-335mw.yaml")
+WIND_ROSE_DATA = getWindRoseYAML("iea37-windrose.yaml")
+
+def evaluate_otimizado(individual, turb_loc_data=TURB_LOC_DATA,
+             turb_atrbt_data=TURB_ATRBT_DATA,
+             wind_rose_data=WIND_ROSE_DATA):
+    # Desempacota os dados previamente carregados
+    turb_coords_yaml, fname_turb, fname_wr = turb_loc_data
+    turb_ci, turb_co, rated_ws, rated_pwr, turb_diam = turb_atrbt_data
+    wind_dir, wind_freq, wind_speed = wind_rose_data
+
+    # Converte o indivíduo para coordenadas de turbinas
+    turb_coords = np.array(individual).reshape((IND_SIZE, 2))
+    
+    penalty_out_of_circle = 0
+    penalty_close_turbines = 0
+
+   
+    # Penaliza turbinas fora do círculo
+    mask_inside = is_within_circle(turb_coords[:, 0], turb_coords[:, 1], CIRCLE_RADIUS)
+    penalty_out_of_circle = np.sum(~mask_inside) * 1e6
+
+    # Penaliza turbinas muito próximas: vetorize o cálculo das distâncias
+    # Utiliza a técnica de matriz de distância (apenas a parte superior, sem repetição)
+    num_turb = len(turb_coords)
+    if num_turb > 1:
+        # Calcula todas as distâncias de uma vez
+        diff = turb_coords.reshape(num_turb, 1, 2) - turb_coords.reshape(1, num_turb, 2)
+        dist_matrix = np.linalg.norm(diff, axis=2)
+        # Pega a parte superior da matriz (não considera a diagonal)
+        i_upper, j_upper = np.triu_indices(num_turb, k=1)
+        close_mask = dist_matrix[i_upper, j_upper] < N_DIAMETERS
+        penalty_close_turbines = np.sum(close_mask) * 1e6
+
+    # Calcula o AEP com os dados já carregados
+    aep = calcAEP(turb_coords, wind_freq, wind_speed, wind_dir,
+                  turb_diam, turb_ci, turb_co, rated_ws, rated_pwr)
+    
+    # Penaliza a solução se houver turbinas fora do polígono ou muito próximas
+    fitness = np.sum(aep) - penalty_out_of_circle - penalty_close_turbines
+    
+    return fitness,
+
 # Função de mutação modificada
 def mutate(individual, mu, sigma, indpb):
     individual = np.array(individual)
@@ -87,9 +132,9 @@ def mutate(individual, mu, sigma, indpb):
 
 # Operadores genéticos
 toolbox.register("mate", tools.cxBlend, alpha=0.5)
-toolbox.register("mutate", mutate, mu=0, sigma=100, indpb=0.4) 
+toolbox.register("mutate", mutate, mu=0, sigma=100, indpb=0.2) 
 toolbox.register("select", tools.selTournament, tournsize=5)
-toolbox.register("evaluate", evaluate)
+toolbox.register("evaluate", evaluate_otimizado)
 
 # Configuração da otimização
 def main():
@@ -114,7 +159,7 @@ def main():
     max_fitness_data = []
 
     # Loop principal de otimização
-    pop, logbook = algorithms.eaSimple(pop, toolbox, cxpb=0.8, mutpb=0.75, ngen=300, 
+    pop, logbook = algorithms.eaSimple(pop, toolbox, cxpb=0.8, mutpb=0.2, ngen=2500, 
                                         stats=stats, halloffame=hof, verbose=True)
     
     # Fechando o pool para liberar os recursos
@@ -137,9 +182,9 @@ def main():
     print("Coordenadas Y:", y_coords)
 
     # Plotar a solução e a evolução da aptidão
-    plot_solution(x_coords, y_coords, radius=CIRCLE_RADIUS)
+    #plot_solution(x_coords, y_coords, radius=CIRCLE_RADIUS)
     plot_fitness(generation_data[3:], max_fitness_data[3:])
-    save_logbook_to_csv(logbook, "set_19")
+    #save_logbook_to_csv(logbook, "set_19")
 
     end_time = time.time()
     total_min = int((end_time - start_time)//60)
@@ -151,25 +196,3 @@ def main():
 
 if __name__ == "__main__":
     pop, stats, hof = main()
-
-
-#1  cxpb=0.7,     mutpb=0.3,  pop=100,    torneio=2,  alpha=0.5,  gen=1000,    indpb=0.2,     sigma=50,   -> ~411815MWh
-#2  cxpb=0.8,     mutpb=0.4,  pop=100,    torneio=2,  alpha=0.5,  gen=1000,    indpb=0.2,     sigma=50,   -> ~411936MWh
-#3  cxpb=0.85,    mutpb=0.45, pop=100,    torneio=2,  alpha=0.5,  gen=1000,    indpb=0.2,     sigma=50,   -> ~410619MWh
-#4  cxpb=0.85,    mutpb=0.45, pop=250,    torneio=2,  alpha=0.5,  gen=1500,    indpb=0.2,     sigma=50,   -> ~411012MWh
-#5  cxpb=0.8,     mutpb=0.4,  pop=250,    torneio=4,  alpha=0.5,  gen=1500,    indpb=0.2,     sigma=50,   -> ~412294MWh 
-#6  cxpb=0.8,     mutpb=0.4,  pop=250,    torneio=5,  alpha=0.6,  gen=2500,    indpb=0.2,     sigma=50,   -> ~410555MWh
-#7  cxpb=0.5,     mutpb=0.45, pop=250,    torneio=6,  alpha=0.6,  gen=1500,    indpb=0.35,    sigma=50,   -> ~400872MWh
-#8  cxpb=0.8,     mutpb=0.4,  pop=250,    torneio=3,  alpha=0.5,  gen=2000,    indpb=0.15,    sigma=10,   -> ~407065MWh
-#9  cxpb=0.8,     mutpb=0.4,  pop=250,    torneio=4,  alpha=0.75, gen=1500,    indpb=0.3,     sigma=150,  -> ~409235MWh
-#10 cxpb=0.7,     mutpb=0.3,  pop=250,    torneio=4,  alpha=0.4,  gen=1500,    indpb=0.4,     sigma=150,  -> ~404785MWh
-#11 cxpb=0.8,     mutpb=0.4,  pop=500,    torneio=4,  alpha=0.5,  gen=3500,    indpb=0.2,     sigma=50,   -> ~410847MWh
-#12 cxpb=0.85,    mutpb=0.35, pop=250,    torneio=5,  alpha=0.5,  gen=3500,    indpb=0.2,     sigma=100,  -> ~412741MWh
-#13 cxpb=0.85,    mutpb=0.35, pop=300,    torneio=5,  alpha=0.5,  gen=500,     indpb=0.2,     sigma=100,  -> ~415203MWh
-#14 cxpb=0.85,    mutpb=0.35, pop=500,    torneio=5,  alpha=0.5,  gen=500,     indpb=0.2,     sigma=100,  -> ~411113MWh
-#15 cxpb=0.85,    mutpb=0.35, pop=400,    torneio=5,  alpha=0.5,  gen=500,     indpb=0.2,     sigma=100,  -> ~412403MWh
-#16 cxpb=0.85,    mutpb=0.35, pop=300,    torneio=5,  alpha=0.5,  gen=3000,    indpb=0.2,     sigma=100,  -> ~415289MWh
-#17 cxpb=0.85,    mutpb=0.35, pop=350,    torneio=5,  alpha=0.5,  gen=2500,    indpb=0.2,     sigma=100,  -> ~410840MWh
-#18 cxpb=0.85,    mutpb=0.35, pop=300,    torneio=6,  alpha=0.5,  gen=1000,    indpb=0.2,     sigma=100,  -> ~408632MWh
-
-#NÃO DESLIGUE O COMPUTADOR, VOLTAREI PRA DESLIGÁ-LO -> ITALO

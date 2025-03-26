@@ -148,7 +148,7 @@ def mutate(individual, mu, sigma, indpb):
 
 # Operadores genéticos
 toolbox.register("mate", tools.cxBlend, alpha=0.5)
-toolbox.register("mutate", mutate, mu=0, sigma=150, indpb=0.55) 
+toolbox.register("mutate", mutate, mu=0, sigma=100, indpb=0.55) 
 toolbox.register("select", tools.selTournament, tournsize=5)
 toolbox.register("evaluate", evaluate_otimizado)
 
@@ -176,7 +176,7 @@ def main():
     max_fitness_data = []
 
     # Loop principal de otimização
-    pop, logbook = algorithms.eaSimple(pop, toolbox, cxpb=0.95, mutpb=0.55, ngen=50, 
+    pop, logbook = algorithms.eaSimple(pop, toolbox, cxpb=0.95, mutpb=0.55, ngen=1000, 
                                         stats=stats, halloffame=hof, verbose=True)
     
     # Fechando o pool para liberar os recursos
@@ -184,9 +184,9 @@ def main():
     pool.join()
 
     # Salvando a aptidão máxima por geração, todas as informaçoes do verbose estao aqui
-    #for record in logbook:
-    #    generation_data.append(record['gen'])
-    #    max_fitness_data.append(record['max'])
+    for record in logbook:
+        generation_data.append(record['gen'])
+        max_fitness_data.append(record['max'])
 
     best_individual = hof[0]
     best_coords = np.array(best_individual).reshape((IND_SIZE, 2))
@@ -199,9 +199,8 @@ def main():
     print("yc:", y_coords)
 
     # Plotar a solução e a evolução da aptidão
-    #plot_solution_circle(x_coords, y_coords, radius=CIRCLE_RADIUS)
-    #plot_solution_polygons(x_coords, y_coords, POLYGONS)
-    #plot_fitness(generation_data[3:], max_fitness_data[3:]) # começo a partir do 3 pois os valores de fit iniciais são tão baixos que estragam o grafico
+    plot_solution_polygons(x_coords, y_coords, POLYGONS)
+    plot_fitness(generation_data[3:], max_fitness_data[3:]) # começo a partir do 3 pois os valores de fit iniciais são tão baixos que estragam o grafico
     #save_logbook_to_csv(logbook, "set_19") essa linha é util para plotar multiplos fitness no mesmo grafico
 
     end_time = time.time()

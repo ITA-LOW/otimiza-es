@@ -17,13 +17,13 @@ def create_individual_from_coordinates(coords):
     individual = creator.Individual(np.array(coords).flatten().tolist())
     return individual
 
-initial_coordinates, _, _ = getTurbLocYAML('iea37-ex16.yaml')
+initial_coordinates, _, _ = getTurbLocYAML('iea37-ex64.yaml')
 toolbox.register("individual", create_individual_from_coordinates, coords=initial_coordinates.tolist())
 toolbox.register("population", tools.initRepeat, list, toolbox.individual)
 
 # Parâmetros do problema
-IND_SIZE = 16  # Número de turbinas
-CIRCLE_RADIUS = 1300  # Raio do círculo
+IND_SIZE = 64  # Número de turbinas
+CIRCLE_RADIUS = 3000  # Raio do círculo
 N_DIAMETERS = 260  # 2 diâmetros de distância no mínimo
 
 
@@ -50,7 +50,7 @@ def mutate(individual, mu, sigma, indpb):
     return creator.Individual(individual.tolist()), 
 
 # Pré-carrega os dados fora da função evaluate:
-TURB_LOC_DATA = getTurbLocYAML("iea37-ex16.yaml")
+TURB_LOC_DATA = getTurbLocYAML("iea37-ex64.yaml")
 TURB_ATRBT_DATA = getTurbAtrbtYAML("iea37-335mw.yaml")
 WIND_ROSE_DATA = getWindRoseYAML("iea37-windrose.yaml")
 
@@ -109,7 +109,6 @@ def main(indpb, mutpb, cxpb):
     alpha = 0.5
     gen = 300
     sigma = 100
-    #cxpb = 0.8
 
     pool = multiprocessing.Pool()
     toolbox.register("map", pool.map)
@@ -164,18 +163,3 @@ print(f"indpb = {best_result[0]:.2f},")
 print(f"mutpb = {best_result[1]:.2f}")
 print(f"cxpb = {best_result[2]:.2f}")
 print(f"AEP = {best_result[3]:.6f} MWh")
-
-
-#1513311G
-#1506388G
-#1480850G
-
-#1479753GF 4° lugar
-
-#1476689G
-#1455075GF
-#1445967G
-#1422268GF
-#1364943GF
-#1336164GG
-#1332883GF

@@ -3,7 +3,7 @@ import numpy as np
 from deap import base, creator, tools, algorithms
 import random
 from iea37_aepcalc import calcAEP, getTurbLocYAML, getWindRoseYAML, getTurbAtrbtYAML
-from plot import plot_solution, plot_fitness, save_logbook_to_csv
+from plot_lots_tests.plot import plot_solution, plot_fitness, save_logbook_to_csv
 import multiprocessing
 import time
 
