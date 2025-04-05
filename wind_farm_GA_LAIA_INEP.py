@@ -2,7 +2,7 @@ import yaml
 import numpy as np
 from deap import base, creator, tools, algorithms
 import random
-from iea37_aepcalc import calcAEP, getTurbLocYAML, getWindRoseYAML, getTurbAtrbtYAML
+from iea37_aepcalc import calcAEP, getTurbLocYAML, getWindRoseYAML, getTurbAtrbtYAML, calcAEP_gpu
 from plot import plot_solution_polygons, plot_fitness, save_logbook_to_csv
 import multiprocessing
 import time
@@ -128,7 +128,7 @@ def evaluate_otimizado(individual, turb_loc_data=TURB_LOC_DATA,
         penalty_close_turbines = np.sum(close_mask) * 1e6
 
     # Calcula o AEP com os dados já carregados
-    aep = calcAEP(turb_coords, wind_freq, wind_speed, wind_dir,
+    aep = calcAEP_gpu(turb_coords, wind_freq, wind_speed, wind_dir,
                   turb_diam, turb_ci, turb_co, rated_ws, rated_pwr)
     
     # Penaliza a solução se houver turbinas fora do polígono ou muito próximas
