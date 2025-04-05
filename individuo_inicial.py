@@ -4,7 +4,7 @@ from shapely.geometry import Polygon, Point
 
 
 """
-Esse código cria um indivíduo que serve de base pra população. Ele a príncipio está programado para otimizar o espaço mas não a geração
+Esse código cria um indivíduo que serve de base pra população. Ele a princípio está programado para otimizar o espaço mas não a geração
 de energia. Altere os parâmetros para gerar o indivíduo de cada caso (60, 80, 100). 
 
 Parâmetros
@@ -35,7 +35,6 @@ dx, dy = 2250, 1500
 b = 100  
 theta = np.radians(72)
 
-"""
 # Parâmetros 
 total_turbines = 100  # Total de turbinas
 boundary_percentage = 0.35  # Percentual de turbinas no perímetro
@@ -45,7 +44,17 @@ theta = np.radians(72)  # Ângulo de rotação
 num_boundary_points = int(total_turbines * boundary_percentage)
 num_inner_turbines = total_turbines - num_boundary_points
 turbine_diameter = 240
+"""
 
+# Parâmetros 
+total_turbines = 150  # Total de turbinas
+boundary_percentage = 0.45  # Percentual de turbinas no perímetro
+dx, dy = 1700, 1500  # Espaçamento da grade
+b = 150  # Deslocamento entre 2 linhas consecutivas
+theta = np.radians(75)  # Ângulo de rotação
+num_boundary_points = int(total_turbines * boundary_percentage)
+num_inner_turbines = total_turbines - num_boundary_points
+turbine_diameter = 240
 
 # Função para distribuir pontos na borda de um polígono
 def distribute_boundary_points(polygon, num_points):
@@ -54,6 +63,7 @@ def distribute_boundary_points(polygon, num_points):
         np.linalg.norm(coords[i] - coords[i - 1]) for i in range(1, len(coords))
     ])
     total_perimeter = perimeter[-1]
+
     step = total_perimeter / num_points
     points = []
 
@@ -100,7 +110,7 @@ def generate_inner_grid(polygon, dx, dy, b, theta, num_turbines):
 
 # Definir exemplo de polígono
 POLYGONS = [
-    Polygon([(0, 0), (14500, 0), (22740, 16000), (8240, 16000)])  # Substitua com seu polígono
+    Polygon([(0, 0), (14500, 0), (22740, 16000), (8240, 16000)])  
 ]
 
 # Gerar turbinas dentro de cada polígono

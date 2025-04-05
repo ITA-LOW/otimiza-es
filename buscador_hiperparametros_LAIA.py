@@ -16,11 +16,7 @@ creator.create("Individual", list, fitness=creator.FitnessMax)
 toolbox = base.Toolbox()
 
 # Parâmetros do problema
-<<<<<<< HEAD
 IND_SIZE = 100  # Número de turbinas
-=======
-IND_SIZE = 80  # Número de turbinas
->>>>>>> 7f40502 (feito teste com 80 turbinas caso real)
 N_DIAMETERS = 480  # 2 diâmetros de distância no mínimo, disco de rotor turbina de 15mwh é 240m
 
 # Definir polígonos
@@ -34,11 +30,7 @@ def create_individual_from_coordinates(coords):
     return individual
 
 # Carregando coordenadas iniciais
-<<<<<<< HEAD
 initial_coordinates, _, _ = getTurbLocYAML('Testes_artigo_2/caso_100_turbinas/iea37-teste_LAIA_100_n_otimizado.yaml')
-=======
-initial_coordinates, _, _ = getTurbLocYAML("Testes_artigo_2/caso_80_turbinas/iea37-teste_LAIA_80_n_otimizado.yaml")
->>>>>>> 7f40502 (feito teste com 80 turbinas caso real)
 toolbox.register("individual", create_individual_from_coordinates, coords=initial_coordinates.tolist())
 toolbox.register("population", tools.initRepeat, list, toolbox.individual)
 
@@ -76,11 +68,7 @@ def mutate(individual, mu, sigma, indpb):
 #######################################################################################################
 
 # Pré-carrega os dados fora da função evaluate:
-<<<<<<< HEAD
 TURB_LOC_DATA = getTurbLocYAML("Testes_artigo_2/caso_100_turbinas/iea37-teste_LAIA_100_n_otimizado.yaml")
-=======
-TURB_LOC_DATA = getTurbLocYAML("Testes_artigo_2/caso_80_turbinas/iea37-teste_LAIA_80_n_otimizado.yaml")
->>>>>>> 7f40502 (feito teste com 80 turbinas caso real)
 TURB_ATRBT_DATA = getTurbAtrbtYAML("iea37-15mw.yaml")
 WIND_ROSE_DATA = getWindRoseYAML("iea37-windrose_LAIA.yaml")
 
