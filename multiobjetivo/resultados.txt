@@ -1,0 +1,110 @@
+Índice do nodo central: 14
+Aep:412277.11624895
+-loss_joule: -1934500.11120429
+gen: 500
+Grafo (caminhos clusterizados) do melhor indivíduo:
+ Caminho 1: [14, 13]
+ Caminho 2: [0, 5]
+ Caminho 3: [5, 13]
+ Caminho 4: [14, 2]
+ Caminho 5: [2, 8]
+ Caminho 6: [2, 9]
+ Caminho 7: [14, 6]
+ Caminho 8: [1, 6]
+ Caminho 9: [1, 7]
+ Caminho 10: [14, 4]
+ Caminho 11: [4, 12]
+ Caminho 12: [14, 15]
+ Caminho 13: [14, 3]
+ Caminho 14: [3, 10]
+ Caminho 15: [3, 11]
+Resultados dos cabos:
+ Joule losses on cabling (kW): 2657.739658
+ Custo total dos cabos: 26648930.340711 (R$)
+Tempo total de execução: 0h 15min 32.02s
+
+
+Índice do nodo central: 12
+Aep: 412281.67447077
+loss: -1996957.7694405
+gen:1500
+Grafo (caminhos clusterizados) do melhor indivíduo:
+ Caminho 1: [12, 4]
+ Caminho 2: [0, 4]
+ Caminho 3: [0, 5]
+ Caminho 4: [12, 9]
+ Caminho 5: [12, 1]
+ Caminho 6: [1, 6]
+ Caminho 7: [1, 7]
+ Caminho 8: [12, 11]
+ Caminho 9: [3, 10]
+ Caminho 10: [3, 11]
+ Caminho 11: [12, 13]
+ Caminho 12: [13, 14]
+ Caminho 13: [14, 15]
+ Caminho 14: [12, 2]
+ Caminho 15: [2, 8]
+
+Resultados dos cabos:
+ Joule losses on cabling (kW): 2878.160978
+ Custo total dos cabos: 28859076.236117 (R$)
+
+Tempo total de execução: 0h 46min 43.56s
+
+500     295     [ -129154.81058377 -2247884.12230426]   [763852.8572511  187606.80341846]       [-2633790.70691664 -2551611.98363223]   [  410994.0464135  -1808374.35290208]
+
+Melhor solução encontrada:
+Coordenadas X: [19.019209346176428, 676.7453000599075, 131.37672109740407, -496.2978785564138, -745.391626033284, 161.26772851544894, 1201.8968070067249, 1019.4340335519398, 474.82883768463273, -303.33264099646215, -950.5259269912698, -1259.396251644641, -1072.86360388104, -247.02232263549814, 493.38333452828675, 1048.8982059984155]
+Coordenadas Y: [144.783792983999, -233.5197983062597, 623.7942519569801, 483.3827222907402, -429.0231681854371, -595.357944141336, -53.44416346962623, 806.6511462143019, 1119.2792841891583, 1264.111109322654, 795.9402988561719, 322.3562527434931, -734.1344887902176, -1276.3035855251285, -1126.745530165292, -767.9786479979758]
+Índice do nodo central: 14
+
+Grafo (caminhos clusterizados) do melhor indivíduo:
+ Caminho 1: [14, 5]
+ Caminho 2: [0, 5]
+ Caminho 3: [5, 13]
+ Caminho 4: [14, 2]
+ Caminho 5: [2, 3]
+ Caminho 6: [2, 8]
+ Caminho 7: [2, 9]
+ Caminho 8: [3, 10]
+ Caminho 9: [14, 15]
+ Caminho 10: [1, 6]
+ Caminho 11: [1, 15]
+ Caminho 12: [6, 7]
+ Caminho 13: [14, 4]
+ Caminho 14: [4, 11]
+ Caminho 15: [4, 12]
+
+Resultados dos cabos:
+ Joule losses on cabling (kW): 2405.509556
+ Custo total dos cabos: 24119840.483529 (R$)
+-----------------------------------------------------------------------------------------------
+ [  410486.56832576 -1985823.3354111 ]
+
+Melhor solução encontrada:
+Coordenadas X: [-167.5519160095704, 653.5785354192584, 133.90455878283976, -517.0471741494316, -731.2440013706922, 180.54631798654526, 1163.747155892236, 1067.5056433155314, 482.9275875313791, -346.45838348613313, -860.5060719174684, -1224.9532290468374, -1062.8274389311982, -240.74065269547432, 499.7338991637148, 1019.5462687822525]
+Coordenadas Y: [-66.37677089035881, -245.37117321145405, 553.1464885662465, 399.90813976472947, -453.7471987096503, -595.5012886849315, 99.68305250121361, 727.7181886182425, 1084.2801153185376, 1251.7051818116668, 875.5788102925453, 249.8301816575957, -746.4418641032446, -1272.4288678067296, -1098.802794146477, -776.1582400376221]
+Índice do nodo central: 11
+
+Grafo (caminhos clusterizados) do melhor indivíduo:
+ Caminho 1: [11, 5]
+ Caminho 2: [5, 14]
+ Caminho 3: [13, 14]
+ Caminho 4: [11, 10]
+ Caminho 5: [9, 10]
+ Caminho 6: [11, 1]
+ Caminho 7: [1, 15]
+ Caminho 8: [11, 4]
+ Caminho 9: [4, 12]
+ Caminho 10: [11, 3]
+ Caminho 11: [0, 3]
+ Caminho 12: [11, 7]
+ Caminho 13: [6, 7]
+ Caminho 14: [11, 2]
+ Caminho 15: [2, 8]
+
+Resultados dos cabos:
+ Joule losses on cabling (kW): 2903.847380
+ Custo total dos cabos: 29116631.606613 (R$)
+
+Tempo total de execução: 0h 3min 8.04s
