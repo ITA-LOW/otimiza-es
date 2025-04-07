@@ -112,12 +112,6 @@ def evaluate_otimizado(individual, turb_loc_data=TURB_LOC_DATA,
     
     return fitness,
 
-# Operadores genéticos
-toolbox.register("mate", tools.cxBlend, alpha=0.5)
-toolbox.register("mutate", mutate, mu=0, sigma=150, indpb=0.55) 
-toolbox.register("select", tools.selTournament, tournsize=5)
-toolbox.register("evaluate", evaluate_otimizado)
-
 # Parâmetros para testar
 cxpb_values = [i / 100.0 for i in range(5, 101, 5)]     # 5% a 100%
 indpb_values = [i / 100.0 for i in range(5, 101, 5)]    # 5% a 100%

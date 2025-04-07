@@ -138,7 +138,7 @@ def mutate(individual, mu, sigma, indpb):
 
 # Operadores genéticos
 toolbox.register("mate", tools.cxBlend, alpha=0.5)
-toolbox.register("mutate", mutate, mu=0, sigma=100, indpb=0.55) 
+toolbox.register("mutate", mutate, mu=0, sigma=100, indpb=0.40) 
 toolbox.register("select", tools.selTournament, tournsize=5)
 toolbox.register("evaluate", evaluate_otimizado)
 
@@ -165,7 +165,7 @@ def main():
     max_fitness_data = []
 
     # Loop principal de otimização
-    pop, logbook = algorithms.eaSimple(pop, toolbox, cxpb=0.95, mutpb=0.55, ngen=300, 
+    pop, logbook = algorithms.eaSimple(pop, toolbox, cxpb=0.95, mutpb=0.7, ngen=300, 
                                         stats=stats, halloffame=hof, verbose=True)
     
     # Fechando o pool para liberar os recursos

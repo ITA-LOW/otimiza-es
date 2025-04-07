@@ -2,7 +2,7 @@ import yaml
 import numpy as np
 from deap import base, creator, tools, algorithms
 import random
-from iea37_aepcalc import calcAEP, getTurbLocYAML, getWindRoseYAML, getTurbAtrbtYAML, calcAEP_gpu
+from iea37_aepcalc import calcAEP, getTurbLocYAML, getWindRoseYAML, getTurbAtrbtYAML
 from plot import plot_solution_polygons, plot_fitness, save_logbook_to_csv
 import multiprocessing
 import time
@@ -128,7 +128,7 @@ def evaluate_otimizado(individual, turb_loc_data=TURB_LOC_DATA,
         penalty_close_turbines = np.sum(close_mask) * 1e6
 
     # Calcula o AEP com os dados já carregados
-    aep = calcAEP_gpu(turb_coords, wind_freq, wind_speed, wind_dir,
+    aep = calcAEP(turb_coords, wind_freq, wind_speed, wind_dir,
                   turb_diam, turb_ci, turb_co, rated_ws, rated_pwr)
     
     # Penaliza a solução se houver turbinas fora do polígono ou muito próximas
@@ -148,7 +148,7 @@ def mutate(individual, mu, sigma, indpb):
 
 # Operadores genéticos
 toolbox.register("mate", tools.cxBlend, alpha=0.5)
-toolbox.register("mutate", mutate, mu=0, sigma=100, indpb=0.55) 
+toolbox.register("mutate", mutate, mu=0, sigma=100, indpb=0.25) 
 toolbox.register("select", tools.selTournament, tournsize=5)
 toolbox.register("evaluate", evaluate_otimizado)
 
@@ -176,7 +176,7 @@ def main():
     max_fitness_data = []
 
     # Loop principal de otimização
-    pop, logbook = algorithms.eaSimple(pop, toolbox, cxpb=0.95, mutpb=0.55, ngen=1000, 
+    pop, logbook = algorithms.eaSimple(pop, toolbox, cxpb=0.95, mutpb=0.05, ngen=2000, 
                                         stats=stats, halloffame=hof, verbose=True)
     
     # Fechando o pool para liberar os recursos

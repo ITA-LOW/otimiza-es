@@ -24,7 +24,7 @@ import numpy as np
 import sys
 import yaml                             # For reading .yaml files
 from math import radians as DegToRad    # For converting degrees to radians
-import cupy as cp
+
 
 # Structured datatype for holding coordinate pair
 coordinate = np.dtype([('x', 'f8'), ('y', 'f8')])
@@ -156,74 +156,10 @@ def calcAEP(turb_coords, wind_freq, wind_speed, wind_dir,
 
     return AEP
 
-################################################################## tentativa com gpu #########################################################################
-def GaussianWake_vetorizado_gpu(frame_coords, turb_diam):
-    frame_coords = cp.asarray(frame_coords, dtype=cp.float64)
-    num_turb = len(frame_coords)
 
-    CT = 4.0 * (1. / 3.) * (1.0 - 1. / 3.)
-    k = 0.0324555
-
-    x_coords = frame_coords[:, 0].reshape(-1, 1)
-    y_coords = frame_coords[:, 1].reshape(-1, 1)
-
-    x_diff = x_coords.T - x_coords
-    y_diff = y_coords.T - y_coords
-
-    mask = x_diff > 0
-    sigma = cp.zeros_like(x_diff)
-    sigma[mask] = k * x_diff[mask] + turb_diam / cp.sqrt(8.)
-
-    exponent = cp.zeros_like(sigma)
-    exponent[mask] = -0.5 * (y_diff[mask] / sigma[mask])**2
-
-    radical = cp.ones_like(sigma)
-    radical[mask] = 1. - CT / (8. * sigma[mask]**2 / turb_diam**2)
-
-    radical_val = cp.ones_like(sigma)
-    radical_val[mask] = cp.sqrt(cp.maximum(radical[mask], 0))
-
-    loss_matrix = cp.zeros_like(sigma)
-    loss_matrix[mask] = (1. - radical_val[mask]) * cp.exp(exponent[mask])
-
-    loss = cp.sqrt(cp.sum(loss_matrix**2, axis=1))
-
-    return loss
-
-def DirPower_gpu(turb_coords, wind_dir_deg, wind_speed, turb_diam, turb_ci, turb_co, rated_ws, rated_pwr):
-    num_turb = len(turb_coords)
-
-    frame_coords = WindFrame(turb_coords, wind_dir_deg)
-    loss = GaussianWake_vetorizado_gpu(frame_coords, turb_diam)
-
-    wind_speed_eff = wind_speed * (1. - loss)
-    turb_pwr = cp.zeros(num_turb)
-
-    mask1 = (turb_ci <= wind_speed_eff) & (wind_speed_eff < rated_ws)
-    turb_pwr[mask1] = rated_pwr * ((wind_speed_eff[mask1] - turb_ci) / (rated_ws - turb_ci))**3
-
-    mask2 = (rated_ws <= wind_speed_eff) & (wind_speed_eff < turb_co)
-    turb_pwr[mask2] = rated_pwr
-
-    pwrDir = cp.sum(turb_pwr)
-    
-    return pwrDir
-
-def calcAEP_gpu(turb_coords, wind_freq, wind_speed, wind_dir, turb_diam, turb_ci, turb_co, rated_ws, rated_pwr):
-    num_bins = len(wind_freq)
-
-    pwr_produced = cp.zeros(num_bins)
-    for i in range(num_bins):
-        pwr_produced[i] = DirPower_gpu(turb_coords, wind_dir[i], wind_speed, turb_diam, turb_ci, turb_co, rated_ws, rated_pwr)
-
-    hrs_per_year = 365. * 24.
-    AEP = hrs_per_year * (cp.asarray(wind_freq) * pwr_produced)
-    AEP /= 1.E6
-
-    return AEP.get()  # Retorna para CPU
 
 ################################################################## DIR POWER ORIGINAL ####################################################################3
-""" def DirPower(turb_coords, wind_dir_deg, wind_speed,
+def DirPower(turb_coords, wind_dir_deg, wind_speed,
              turb_diam, turb_ci, turb_co, rated_ws, rated_pwr):
     #Return the power produced by each turbine.
     num_turb = len(turb_coords)
@@ -257,42 +193,8 @@ def calcAEP_gpu(turb_coords, wind_freq, wind_speed, wind_dir, turb_diam, turb_ci
     # Sum the power from all turbines for this direction
     pwrDir = np.sum(turb_pwr)
 
-    return pwrDir """
-################################################################# DIR POWER TUNADA ##############################################################
-def DirPower(turb_coords, wind_dir_deg, wind_speed,
-             turb_diam, turb_ci, turb_co, rated_ws, rated_pwr, use_gpu=False):
-    """Return the power produced by each turbine."""
-    num_turb = len(turb_coords)
-
-    # Define o backend (NumPy para CPU, CuPy para GPU)
-    xp = cp if use_gpu else np
-
-    # Converte as coordenadas para a estrutura correta (mantém compatibilidade com CPU/GPU)
-    frame_coords = WindFrame(xp.asarray(turb_coords), wind_dir_deg)
-
-    # Escolha a função de perda por wake (descomente a desejada)
-    # loss = GaussianWake(frame_coords, turb_diam)
-    # loss = GaussianWake_vetorizado_optimizado(frame_coords, turb_diam)
-    loss = GaussianWake_vetorizado_gpu(frame_coords, turb_diam) if use_gpu else GaussianWake_vetorizado_optimizado(frame_coords, turb_diam)
-
-    # Cálculo vetorizado da velocidade efetiva do vento
-    wind_speed_eff = wind_speed * (1. - loss)
-
-    # Inicializa o array de potência (na CPU ou GPU)
-    turb_pwr = xp.zeros(num_turb)
-
-    # Aplica a curva de potência vetorizada
-    mask1 = (turb_ci <= wind_speed_eff) & (wind_speed_eff < rated_ws)
-    turb_pwr[mask1] = rated_pwr * ((wind_speed_eff[mask1] - turb_ci) / (rated_ws - turb_ci))**3
-
-    mask2 = (rated_ws <= wind_speed_eff) & (wind_speed_eff < turb_co)
-    turb_pwr[mask2] = rated_pwr
-
-    # Soma total da potência das turbinas
-    pwrDir = xp.sum(turb_pwr)
-
     return pwrDir
-####################################################### DIR POWER TUNADA ####################################################################
+
 def getTurbLocYAML(file_name):
     """ Retrieve turbine locations and auxiliary file names from <.yaml> file.
 

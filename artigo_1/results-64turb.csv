@@ -8000,7 +8000,7 @@ INDPB,MUTPB,CXPB,AEP
 1.0,1.0,0.95,1344201.1198312622
 1.0,1.0,1.0,1353674.4864859749
 
-Tempo de computação: 7299:5
+Tempo de computação: 7299:5, configuração de 64 turbinas
 Melhores parâmetros sugeridos:
 indpb = 0.20,
 mutpb = 0.20
