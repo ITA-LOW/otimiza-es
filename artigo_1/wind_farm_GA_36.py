@@ -3,7 +3,7 @@ import numpy as np
 from deap import base, creator, tools, algorithms
 import random
 from iea37_aepcalc import calcAEP, getTurbLocYAML, getWindRoseYAML, getTurbAtrbtYAML
-from plot_lots_tests.plot import plot_solution, plot_fitness, save_logbook_to_csv
+#from plot_lots_tests.plot import plot_solution, plot_fitness, save_logbook_to_csv
 import multiprocessing
 import time
 
@@ -87,7 +87,7 @@ def mutate(individual, mu, sigma, indpb):
 
 # Operadores genéticos
 toolbox.register("mate", tools.cxBlend, alpha=0.5)
-toolbox.register("mutate", mutate, mu=0, sigma=100, indpb=0.35) 
+toolbox.register("mutate", mutate, mu=0, sigma=100, indpb=0.05) 
 toolbox.register("select", tools.selTournament, tournsize=5)
 toolbox.register("evaluate", evaluate)
 
@@ -114,7 +114,7 @@ def main():
     max_fitness_data = []
 
     # Loop principal de otimização
-    pop, logbook = algorithms.eaSimple(pop, toolbox, cxpb=0.95, mutpb=0.35, ngen=200, 
+    pop, logbook = algorithms.eaSimple(pop, toolbox, cxpb=0.35, mutpb=0.05, ngen=500, 
                                         stats=stats, halloffame=hof, verbose=True)
     
     # Fechando o pool para liberar os recursos
