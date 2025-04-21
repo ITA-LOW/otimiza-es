@@ -17,13 +17,13 @@ def create_individual_from_coordinates(coords):
     individual = creator.Individual(np.array(coords).flatten().tolist())
     return individual
 
-initial_coordinates, _, _ = getTurbLocYAML('iea37-ex64.yaml')
+initial_coordinates, _, _ = getTurbLocYAML('iea37-ex36.yaml')
 toolbox.register("individual", create_individual_from_coordinates, coords=initial_coordinates.tolist())
 toolbox.register("population", tools.initRepeat, list, toolbox.individual)
 
 # Parâmetros do problema
-IND_SIZE = 64  # Número de turbinas
-CIRCLE_RADIUS = 3000  # Raio do círculo
+IND_SIZE = 36  # Número de turbinas
+CIRCLE_RADIUS = 2000  # Raio do círculo
 N_DIAMETERS = 260  # 2 diâmetros de distância no mínimo
 
 
@@ -50,7 +50,7 @@ def mutate(individual, mu, sigma, indpb):
     return creator.Individual(individual.tolist()), 
 
 # Pré-carrega os dados fora da função evaluate:
-TURB_LOC_DATA = getTurbLocYAML("iea37-ex64.yaml")
+TURB_LOC_DATA = getTurbLocYAML("iea37-ex36.yaml")
 TURB_ATRBT_DATA = getTurbAtrbtYAML("iea37-335mw.yaml")
 WIND_ROSE_DATA = getWindRoseYAML("iea37-windrose.yaml")
 

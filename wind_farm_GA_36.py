@@ -3,7 +3,7 @@ import numpy as np
 from deap import base, creator, tools, algorithms
 import random
 from iea37_aepcalc import calcAEP, getTurbLocYAML, getWindRoseYAML, getTurbAtrbtYAML
-from plot import plot_solution, plot_fitness, save_logbook_to_csv
+#from plot import plot_solution, plot_fitness, save_logbook_to_csv
 import multiprocessing
 import time
 
@@ -15,8 +15,8 @@ creator.create("Individual", list, fitness=creator.FitnessMax)
 toolbox = base.Toolbox()
 
 # Parâmetros
-IND_SIZE = 64  # Número de turbinas
-CIRCLE_RADIUS = 3000  # Raio do círculo
+IND_SIZE = 36  # Número de turbinas
+CIRCLE_RADIUS = 2000  # Raio do círculo
 N_DIAMETERS = 260  # 2 diâmetros de distância no mínimo
 
 def create_individual_from_coordinates(coords):
@@ -24,17 +24,23 @@ def create_individual_from_coordinates(coords):
     return individual
 
 # Carregando coordenadas iniciais
-initial_coordinates, _, _ = getTurbLocYAML('iea37-ex64.yaml')
+initial_coordinates, _, _ = getTurbLocYAML('artigo_1/iea37-ex36.yaml')
 toolbox.register("individual", create_individual_from_coordinates, coords=initial_coordinates.tolist())
 toolbox.register("population", tools.initRepeat, list, toolbox.individual)
 
 def is_within_circle(x, y, radius):
+    x = np.asarray(x)
+    y = np.asarray(y)
+    return x**2 + y**2 <= radius**2
+
+
+def is_within_circle_otimizado(x, y, radius):
     return x**2 + y**2 <= radius**2 
 
 def enforce_circle(individual):
     for i in range(IND_SIZE):
         x, y = individual[2*i], individual[2*i + 1]
-        if not is_within_circle(x, y, CIRCLE_RADIUS):
+        if not is_within_circle_otimizado(x, y, CIRCLE_RADIUS):
             # Ajusta a turbina para ficar dentro do círculo
             angle = np.arctan2(y, x)
             distance = CIRCLE_RADIUS
@@ -44,14 +50,14 @@ def enforce_circle(individual):
 # Função de avaliação
 def evaluate(individual):
     # Carregando os dados dos arquivos YAML
-    turb_coords, fname_turb, fname_wr = getTurbLocYAML("iea37-ex64.yaml")
+    turb_coords, fname_turb, fname_wr = getTurbLocYAML("artigo_1/iea37-ex36.yaml")
     turb_ci, turb_co, rated_ws, rated_pwr, turb_diam = getTurbAtrbtYAML("iea37-335mw.yaml")
     wind_dir, wind_freq, wind_speed = getWindRoseYAML("iea37-windrose.yaml")
 
     # Convertendo o indivíduo para coordenadas de turbinas
     turb_coords = np.array(individual).reshape((IND_SIZE, 2))
     
-    # Verifica se todas as turbinas estão dentro do círculo de raio 1300m
+   
     penalty_out_of_circle = 0
     penalty_close_turbines = 0
     
@@ -76,7 +82,7 @@ def evaluate(individual):
     return fitness,
 
 # Pré-carrega os dados fora da função evaluate:
-TURB_LOC_DATA = getTurbLocYAML("iea37-ex64.yaml")
+TURB_LOC_DATA = getTurbLocYAML("artigo_1/iea37-ex36.yaml")
 TURB_ATRBT_DATA = getTurbAtrbtYAML("iea37-335mw.yaml")
 WIND_ROSE_DATA = getWindRoseYAML("iea37-windrose.yaml")
 
@@ -132,7 +138,7 @@ def mutate(individual, mu, sigma, indpb):
 
 # Operadores genéticos
 toolbox.register("mate", tools.cxBlend, alpha=0.5)
-toolbox.register("mutate", mutate, mu=0, sigma=100, indpb=0.2) 
+toolbox.register("mutate", mutate, mu=0, sigma=100, indpb=0.05) 
 toolbox.register("select", tools.selTournament, tournsize=5)
 toolbox.register("evaluate", evaluate_otimizado)
 
@@ -159,7 +165,7 @@ def main():
     max_fitness_data = []
 
     # Loop principal de otimização
-    pop, logbook = algorithms.eaSimple(pop, toolbox, cxpb=0.8, mutpb=0.2, ngen=520, 
+    pop, logbook = algorithms.eaSimple(pop, toolbox, cxpb=0.35, mutpb=0.05, ngen=500, 
                                         stats=stats, halloffame=hof, verbose=True)
     
     # Fechando o pool para liberar os recursos
@@ -183,8 +189,8 @@ def main():
 
     # Plotar a solução e a evolução da aptidão
     #plot_solution(x_coords, y_coords, radius=CIRCLE_RADIUS)
-    plot_fitness(generation_data[3:], max_fitness_data[3:])
-    #save_logbook_to_csv(logbook, "set_19")
+    #plot_fitness(generation_data[3:], max_fitness_data[3:]) # começo a partir do 3 pois os valores de fit iniciais são tão baixos que estragam o grafico
+    #save_logbook_to_csv(logbook, "set_19") essa linha é util para plotar multiplos fitness no mesmo grafico
 
     end_time = time.time()
     total_min = int((end_time - start_time)//60)
