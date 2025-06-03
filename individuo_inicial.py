@@ -35,7 +35,7 @@ dx, dy = 2250, 1500
 b = 100  
 theta = np.radians(72)
 
-# Parâmetros 
+""" # Parâmetros 
 total_turbines = 100  # Total de turbinas
 boundary_percentage = 0.35  # Percentual de turbinas no perímetro
 dx, dy = 2250, 1500  # Espaçamento da grade
@@ -44,9 +44,9 @@ theta = np.radians(72)  # Ângulo de rotação
 num_boundary_points = int(total_turbines * boundary_percentage)
 num_inner_turbines = total_turbines - num_boundary_points
 turbine_diameter = 240
-"""
+""" """
 
-# Parâmetros 
+""" # Parâmetros 
 total_turbines = 150  # Total de turbinas
 boundary_percentage = 0.45  # Percentual de turbinas no perímetro
 dx, dy = 1700, 1500  # Espaçamento da grade
@@ -54,7 +54,7 @@ b = 150  # Deslocamento entre 2 linhas consecutivas
 theta = np.radians(75)  # Ângulo de rotação
 num_boundary_points = int(total_turbines * boundary_percentage)
 num_inner_turbines = total_turbines - num_boundary_points
-turbine_diameter = 240
+turbine_diameter = 240 """
 
 # Função para distribuir pontos na borda de um polígono
 def distribute_boundary_points(polygon, num_points):
