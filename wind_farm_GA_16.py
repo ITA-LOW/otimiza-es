@@ -154,7 +154,7 @@ def main():
     # Configura o ambiente DEAP
     toolbox.register("map", pool.map)  
     pop = toolbox.population(n=300)  # Tamanho da população
-    hof = tools.HallOfFame(1)  # Manter o melhor indivíduo
+    hof = tools.HallOfFame(5)  # Manter o melhor indivíduo
     stats = tools.Statistics(lambda ind: ind.fitness.values)
     stats.register("avg", np.mean)
     stats.register("std", np.std)
@@ -165,7 +165,7 @@ def main():
     max_fitness_data = []
 
     # Loop principal de otimização
-    pop, logbook = algorithms.eaSimple(pop, toolbox, cxpb=0.95, mutpb=0.7, ngen=300, 
+    pop, logbook = algorithms.eaSimple(pop, toolbox, cxpb=0.95, mutpb=0.7, ngen=1500, 
                                         stats=stats, halloffame=hof, verbose=True)
     
     # Fechando o pool para liberar os recursos
@@ -177,15 +177,16 @@ def main():
         generation_data.append(record['gen'])
         max_fitness_data.append(record['max'])
 
-    best_individual = hof[0]
-    best_coords = np.array(best_individual).reshape((IND_SIZE, 2))
-    
-    x_coords = best_coords[:, 0].tolist()
-    y_coords = best_coords[:, 1].tolist()
+    for i in range(5):
+        best_individual = hof[0]
+        best_coords = np.array(best_individual).reshape((IND_SIZE, 2))
+        
+        x_coords = best_coords[:, 0].tolist()
+        y_coords = best_coords[:, 1].tolist()
 
-    print("Melhor solução:")
-    print("Coordenadas X:", x_coords)
-    print("Coordenadas Y:", y_coords)
+        print("Melhor solução:")
+        print("Coordenadas X:", x_coords)
+        print("Coordenadas Y:", y_coords)
 
     # Plotar a solução e a evolução da aptidão
     #plot_solution(x_coords, y_coords, radius=CIRCLE_RADIUS)

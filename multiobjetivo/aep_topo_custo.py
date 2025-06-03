@@ -25,7 +25,7 @@ class Cable:
         self.dI = 2.3  
         self.A = self.I / self.dI if self.I > 0 else 0.0  
         self.p = 0.0173e-6  
-        self.alpha = 0.393  
+        self.alpha = 0.00393  
         self.p90 = self.p * (1 + self.alpha * (90 - 20))  
         self.C = 2e3  
         self.Pj = self._calc_pj()

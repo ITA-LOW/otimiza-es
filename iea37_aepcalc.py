@@ -168,8 +168,8 @@ def DirPower(turb_coords, wind_dir_deg, wind_speed,
     frame_coords = WindFrame(turb_coords, wind_dir_deg)
     
     # Use the Simplified Bastankhah Gaussian wake model for wake deficits
-    #loss = GaussianWake(frame_coords, turb_diam)
-    loss = GaussianWake_vetorizado_optimizado(frame_coords, turb_diam) # testa função vetorizada
+    loss = GaussianWake(frame_coords, turb_diam)
+    #loss = GaussianWake_vetorizado_optimizado(frame_coords, turb_diam) # testa função vetorizada
     
     # Effective windspeed is freestream multiplied by wake deficits
     wind_speed_eff = wind_speed*(1.-loss)

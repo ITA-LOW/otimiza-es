@@ -75,6 +75,51 @@ def evaluate(individual):
     
     return fitness,
 
+# Pré-carrega os dados fora da função evaluate:
+TURB_LOC_DATA = getTurbLocYAML("iea37-ex16.yaml")
+TURB_ATRBT_DATA = getTurbAtrbtYAML("iea37-335mw.yaml")
+WIND_ROSE_DATA = getWindRoseYAML("iea37-windrose.yaml")
+
+def evaluate_otimizado(individual, turb_loc_data=TURB_LOC_DATA,
+             turb_atrbt_data=TURB_ATRBT_DATA,
+             wind_rose_data=WIND_ROSE_DATA):
+    # Desempacota os dados previamente carregados
+    turb_coords_yaml, fname_turb, fname_wr = turb_loc_data
+    turb_ci, turb_co, rated_ws, rated_pwr, turb_diam = turb_atrbt_data
+    wind_dir, wind_freq, wind_speed = wind_rose_data
+
+    # Converte o indivíduo para coordenadas de turbinas
+    turb_coords = np.array(individual).reshape((IND_SIZE, 2))
+    
+    penalty_out_of_circle = 0
+    penalty_close_turbines = 0
+
+   
+    # Penaliza turbinas fora do círculo
+    mask_inside = is_within_circle(turb_coords[:, 0], turb_coords[:, 1], CIRCLE_RADIUS)
+    penalty_out_of_circle = np.sum(~mask_inside) * 1e6
+
+    # Penaliza turbinas muito próximas: vetorize o cálculo das distâncias
+    # Utiliza a técnica de matriz de distância (apenas a parte superior, sem repetição)
+    num_turb = len(turb_coords)
+    if num_turb > 1:
+        # Calcula todas as distâncias de uma vez
+        diff = turb_coords.reshape(num_turb, 1, 2) - turb_coords.reshape(1, num_turb, 2)
+        dist_matrix = np.linalg.norm(diff, axis=2)
+        # Pega a parte superior da matriz (não considera a diagonal)
+        i_upper, j_upper = np.triu_indices(num_turb, k=1)
+        close_mask = dist_matrix[i_upper, j_upper] < N_DIAMETERS
+        penalty_close_turbines = np.sum(close_mask) * 1e6
+
+    # Calcula o AEP com os dados já carregados
+    aep = calcAEP(turb_coords, wind_freq, wind_speed, wind_dir,
+                  turb_diam, turb_ci, turb_co, rated_ws, rated_pwr)
+    
+    # Penaliza a solução se houver turbinas fora do polígono ou muito próximas
+    fitness = np.sum(aep) - penalty_out_of_circle - penalty_close_turbines
+    
+    return fitness,
+
 # Função de mutação modificada
 def mutate(individual, mu, sigma, indpb):
     individual = np.array(individual)
@@ -87,9 +132,9 @@ def mutate(individual, mu, sigma, indpb):
 
 # Operadores genéticos
 toolbox.register("mate", tools.cxBlend, alpha=0.5)
-toolbox.register("mutate", mutate, mu=0, sigma=100, indpb=0.05) 
+toolbox.register("mutate", mutate, mu=0, sigma=100, indpb=0.10) 
 toolbox.register("select", tools.selTournament, tournsize=5)
-toolbox.register("evaluate", evaluate)
+toolbox.register("evaluate", evaluate_otimizado)
 
 # Configuração da otimização
 def main():
@@ -114,7 +159,7 @@ def main():
     max_fitness_data = []
 
     # Loop principal de otimização
-    pop, logbook = algorithms.eaSimple(pop, toolbox, cxpb=0.35, mutpb=0.05, ngen=500, 
+    pop, logbook = algorithms.eaSimple(pop, toolbox, cxpb=1.00, mutpb=0.35, ngen=1500, 
                                         stats=stats, halloffame=hof, verbose=True)
     
     # Fechando o pool para liberar os recursos
@@ -137,9 +182,9 @@ def main():
     print("Coordenadas Y:", y_coords)
 
     # Plotar a solução e a evolução da aptidão
-    plot_solution(x_coords, y_coords, radius=CIRCLE_RADIUS)
-    plot_fitness(generation_data[3:], max_fitness_data[3:])
-    save_logbook_to_csv(logbook, "set_19")
+    #plot_solution(x_coords, y_coords, radius=CIRCLE_RADIUS)
+    #plot_fitness(generation_data[3:], max_fitness_data[3:])
+    #save_logbook_to_csv(logbook, "set_19")
 
     end_time = time.time()
     total_min = int((end_time - start_time)//60)

@@ -3,7 +3,7 @@ import numpy as np
 from deap import base, creator, tools, algorithms
 import random
 from iea37_aepcalc import calcAEP, getTurbLocYAML, getWindRoseYAML, getTurbAtrbtYAML
-from plot_lots_tests.plot import plot_solution, plot_fitness, save_logbook_to_csv
+#from plot_lots_tests.plot import plot_solution, plot_fitness, save_logbook_to_csv
 import multiprocessing
 import time
 
@@ -159,7 +159,7 @@ def main():
     max_fitness_data = []
 
     # Loop principal de otimização
-    pop, logbook = algorithms.eaSimple(pop, toolbox, cxpb=0.95, mutpb=0.70, ngen=500, 
+    pop, logbook = algorithms.eaSimple(pop, toolbox, cxpb=0.95, mutpb=0.70, ngen=1500, 
                                         stats=stats, halloffame=hof, verbose=True)
     
     # Fechando o pool para liberar os recursos
@@ -183,7 +183,7 @@ def main():
 
     # Plotar a solução e a evolução da aptidão
     #plot_solution(x_coords, y_coords, radius=CIRCLE_RADIUS)
-    plot_fitness(generation_data[3:], max_fitness_data[3:]) # começo a partir do 3 pois os valores de fit iniciais são tão baixos que estragam o grafico
+    #plot_fitness(generation_data[3:], max_fitness_data[3:]) # começo a partir do 3 pois os valores de fit iniciais são tão baixos que estragam o grafico
     #save_logbook_to_csv(logbook, "set_19") essa linha é util para plotar multiplos fitness no mesmo grafico
 
     end_time = time.time()
