@@ -16,7 +16,7 @@ creator.create("Individual", list, fitness=creator.FitnessMax)
 toolbox = base.Toolbox()
 
 # Parâmetros
-IND_SIZE = 100  # Número de turbinas
+IND_SIZE = 150  # Número de turbinas
 N_DIAMETERS = 2*240  # 2 diâmetros de distância no mínimo
 
 # Definir polígonos
@@ -31,7 +31,7 @@ def create_individual_from_coordinates(coords):
     return individual
 
 # Carregando coordenadas iniciais
-initial_coordinates, _, _ = getTurbLocYAML('Testes_artigo_2/caso_100_turbinas_teste/iea37-teste_LAIA_100_otimizado.yaml')
+initial_coordinates, _, _ = getTurbLocYAML('Testes_artigo_2/caso_150_turbinas/iea37-teste_LAIA_150_n_otimizado.yaml')
 toolbox.register("individual", create_individual_from_coordinates, coords=initial_coordinates.tolist())
 toolbox.register("population", tools.initRepeat, list, toolbox.individual)
 
@@ -57,42 +57,8 @@ def enforce_polygons(individual):
             projected_point = nearest_polygon.exterior.interpolate(nearest_polygon.exterior.project(point))
             individual[2 * i], individual[2 * i + 1] = projected_point.x, projected_point.y
 
-# Função de avaliação
-def evaluate(individual):
-    # Carregando os dados dos arquivos YAML
-    turb_coords, fname_turb, fname_wr = getTurbLocYAML("Testes_artigo_2/caso_100_turbinas_teste/iea37-teste_LAIA_100_otimizado.yaml")
-    turb_ci, turb_co, rated_ws, rated_pwr, turb_diam = getTurbAtrbtYAML("iea37-15mw.yaml")
-    wind_dir, wind_freq, wind_speed = getWindRoseYAML("iea37-windrose_LAIA.yaml")
-
-    # Convertendo o indivíduo para coordenadas de turbinas
-    turb_coords = np.array(individual).reshape((IND_SIZE, 2))
-    
-   
-    penalty_out_of_polygon = 0
-    penalty_close_turbines = 0
-    
-    for x, y in turb_coords:
-        if not is_within_polygons(x, y, POLYGONS):
-            penalty_out_of_polygon += 1e6  
-
-    # Penalizar turbinas muito próximas
-    min_distance = N_DIAMETERS
-    for i in range(len(turb_coords)):
-        for j in range(i + 1, len(turb_coords)):
-            dist = np.linalg.norm(turb_coords[i] - turb_coords[j])
-            if dist < min_distance:
-                penalty_close_turbines += 1e6  
-    
-    # Calculando o AEP
-    aep = calcAEP(turb_coords, wind_freq, wind_speed, wind_dir, turb_diam, turb_ci, turb_co, rated_ws, rated_pwr)
-    
-    # Penalizando a solução se tiver turbinas fora do círculo ou muito próximas
-    fitness = np.sum(aep) - penalty_out_of_polygon - penalty_close_turbines
-    
-    return fitness,
-
 # Pré-carrega os dados fora da função evaluate:
-TURB_LOC_DATA = getTurbLocYAML("Testes_artigo_2/caso_100_turbinas_teste/iea37-teste_LAIA_100_otimizado.yaml")
+TURB_LOC_DATA = getTurbLocYAML("Testes_artigo_2/caso_150_turbinas/iea37-teste_LAIA_150_n_otimizado.yaml")
 TURB_ATRBT_DATA = getTurbAtrbtYAML("iea37-15mw.yaml")
 WIND_ROSE_DATA = getWindRoseYAML("iea37-windrose_LAIA.yaml")
 
@@ -148,7 +114,7 @@ def mutate(individual, mu, sigma, indpb):
 
 # Operadores genéticos
 toolbox.register("mate", tools.cxBlend, alpha=0.5)
-toolbox.register("mutate", mutate, mu=0, sigma=100, indpb=0.25) 
+toolbox.register("mutate", mutate, mu=0, sigma=100, indpb=0.05) 
 toolbox.register("select", tools.selTournament, tournsize=5)
 toolbox.register("evaluate", evaluate_otimizado)
 
@@ -176,7 +142,7 @@ def main():
     max_fitness_data = []
 
     # Loop principal de otimização
-    pop, logbook = algorithms.eaSimple(pop, toolbox, cxpb=0.95, mutpb=0.05, ngen=50, 
+    pop, logbook = algorithms.eaSimple(pop, toolbox, cxpb=0.9, mutpb=0.65, ngen=1500, 
                                         stats=stats, halloffame=hof, verbose=True)
     
     # Fechando o pool para liberar os recursos
@@ -201,7 +167,7 @@ def main():
     # Plotar a solução e a evolução da aptidão
     plot_solution_polygons(x_coords, y_coords, POLYGONS)
     plot_fitness(generation_data[3:], max_fitness_data[3:]) # começo a partir do 3 pois os valores de fit iniciais são tão baixos que estragam o grafico
-    #save_logbook_to_csv(logbook, "set_19") essa linha é util para plotar multiplos fitness no mesmo grafico
+    save_logbook_to_csv(logbook, "set_19") #essa linha é util para plotar multiplos fitness no mesmo grafico
 
     end_time = time.time()
     total_min = int((end_time - start_time)//60)

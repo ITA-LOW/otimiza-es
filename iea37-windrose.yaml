@@ -21,9 +21,12 @@ definitions:
         maximum: 360.0
 
       speed:
-        type: number
-        description: A wind speed, constant for these case studies.
-        default: 9.8
+        type: array
+        description: A wind speed for each direction bin.
+        default: [9.8, 9.8, 9.8, 9.8, 
+                  9.8, 9.8, 9.8, 9.8, 
+                  9.8, 9.8, 9.8, 9.8, 
+                  9.8, 9.8, 9.8, 9.8]
         units: m/s
 
       ti:

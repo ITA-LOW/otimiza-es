@@ -145,7 +145,7 @@ def calcAEP(turb_coords, wind_freq, wind_speed, wind_dir,
     # For each wind bin
     for i in range(num_bins):
         # Find the farm's power for the current direction
-        pwr_produced[i] = DirPower(turb_coords, wind_dir[i], wind_speed,
+        pwr_produced[i] = DirPower(turb_coords, wind_dir[i], wind_speed[i],
                                    turb_diam, turb_ci, turb_co,
                                    rated_ws, rated_pwr)
 
@@ -168,8 +168,8 @@ def DirPower(turb_coords, wind_dir_deg, wind_speed,
     frame_coords = WindFrame(turb_coords, wind_dir_deg)
     
     # Use the Simplified Bastankhah Gaussian wake model for wake deficits
-    loss = GaussianWake(frame_coords, turb_diam)
-    #loss = GaussianWake_vetorizado_optimizado(frame_coords, turb_diam) # testa função vetorizada
+    #loss = GaussianWake(frame_coords, turb_diam)
+    loss = GaussianWake_vetorizado_optimizado(frame_coords, turb_diam) # testa função vetorizada
     
     # Effective windspeed is freestream multiplied by wake deficits
     wind_speed_eff = wind_speed*(1.-loss)
@@ -238,8 +238,8 @@ def getWindRoseYAML(file_name):
     # (Convert from <list> to <ndarray>)
     wind_dir = np.asarray(props['direction']['bins'])
     wind_freq = np.asarray(props['probability']['default'])
-    # (Convert from <list> to <float>)
-    wind_speed = float(props['speed']['default'])
+    # (Convert from <list> to <ndarray>)
+    wind_speed = np.asarray(props['speed']['default'])
 
     return wind_dir, wind_freq, wind_speed
 

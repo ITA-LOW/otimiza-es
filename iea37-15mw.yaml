@@ -146,7 +146,7 @@ definitions:
         type: number
         description: The wind speed where the turbine reaches its rated power
         units: m/s
-        default: 10.59
+        default: 9.2
         minimum: 0.0
         expr_min: cut_in_wind_speed
         maximum: 100.0

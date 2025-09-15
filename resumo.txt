@@ -1,0 +1,54 @@
+# Diário de Bordo - Otimização de Layout de Parques Eólicos
+
+**Instruções para Gemini:**
+# Meu Perfil
+
+Eu sou um assistente de IA especializado em otimização mono e multiobjetivo, com forte conhecimento em computação científica e computação evolucionária. Meu objetivo é auxiliar na resolução de problemas complexos, otimizando código para performance e clareza, e aplicando as melhores práticas de engenharia de software para garantir que a solução seja robusta, eficiente e escalável.
+---
+
+Este arquivo documenta as atividades, tarefas, problemas e soluções relacionados ao projeto de otimização de layout de parques eólicos.
+
+## Objetivo Geral
+
+Realizar a otimização multiobjetivo do layout do parque eólico, considerando dois objetivos principais:
+
+1.  **Maximizar a Produção Anual de Energia (AEP):** O AEP é calculado utilizando o arquivo `iea37_aepcalc.py`, que implementa o modelo de esteira gaussiano para estimar as perdas de energia devido à interação entre as turbinas.
+
+2.  **Minimizar o Custo de Implantação do Cabeamento:** O custo da infraestrutura de cabos elétricos é calculado com base no arquivo `kruskal.py`. O custo do cabeamento é determinado na classe `Plant` do arquivo `kruskal.py`. O método `calculate_cost` calcula o custo total com base no comprimento dos cabos e no custo por metro (`INDUSTRIAL_CABLE_COSTS`).
+
+---
+
+## Registro de Atividades
+
+**Data:** 14/09/2025
+
+**Problema:** Ao executar o script `wind_farm_GA_16.py`, foi encontrado um `TypeError`.
+
+**Análise:** O erro foi causado pela função `getWindRoseYAML` no arquivo `iea37_aepcalc.py`. A função esperava um único valor de velocidade do vento, mas o arquivo `iea37-windrose.yaml` fornecia uma lista de velocidades, uma para cada direção do vento.
+
+**Solução:**
+1.  A função `getWindRoseYAML` foi modificada para ler a lista de velocidades do vento como um array numpy.
+2.  A função `calcAEP` foi ajustada para iterar sobre a lista de velocidades, utilizando o valor correto para cada direção do vento durante o cálculo do AEP.
+
+**Status:** O usuário confirmou que a correção foi bem-sucedida e o script `wind_farm_GA_16.py` está executando sem erros.
+
+---
+
+## Tarefas Pendentes
+
+-   [X] **1. Refinamento do Modelo de Vento:**
+    -   [X] Modificar o arquivo `iea37-windrose.yaml` para que cada direção do vento tenha uma velocidade específica, em vez de um valor constante.
+    -   [ ] Considerar a correlação (baseada na distribuição de Weibull) de que direções menos frequentes podem ter velocidades de vento menores.
+
+-   [ ] **2. Integração dos Módulos de Avaliação:**
+    -   [ ] Criar uma função principal ou classe que integre o cálculo de AEP (`iea37_aepcalc.py`) e o cálculo de custo (`kruskal.py`).
+    -   [ ] A função de avaliação deve receber um layout de turbinas como entrada e retornar os dois valores de objetivo (AEP e Custo).
+
+-   [ ] **3. Implementação do Algoritmo de Otimização:**
+    -   [ ] Configurar o algoritmo genético (utilizando os arquivos `wind_farm_GA_*.py`) para lidar com a otimização multiobjetivo (e.g., usando o algoritmo NSGA-II).
+    -   [ ] Definir os operadores genéticos (cruzamento, mutação) para a representação do layout do parque eólico.
+
+-   [ ] **4. Execução e Análise:**
+    -   [ ] Executar o algoritmo de otimização para gerar uma frente de Pareto.
+    -   [ ] Visualizar os resultados (layout e frente de Pareto) utilizando o `plot.py`.
+    -   [ ] Analisar as soluções na frente de Pareto para entender o trade-off entre AEP e custo.
