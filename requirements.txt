@@ -1,27 +1,31 @@
-contourpy==1.2.1
-cycler==0.12.1
-deap==1.4.1
-fastrlock==0.8.3
-fonttools==4.53.1
-joblib==1.4.2
-kiwisolver==1.4.5
-matplotlib==3.9.2
-networkx==3.4.2
-numpy==2.1.0
-packaging==24.1
-pandas==2.2.3
-pillow==10.4.0
-pyaml==24.7.0
-pyparsing==3.1.4
-pyswarm==0.6
-python-dateutil==2.9.0.post0
-pytz==2024.2
-PyYAML==6.0.2
-scikit-learn==1.5.1
-scikit-optimize==0.10.2
-scipy==1.14.1
-seaborn==0.13.2
-shapely==2.0.7
-six==1.16.0
-threadpoolctl==3.5.0
-tzdata==2024.2
+# Dependências principais
+numpy>=1.21.0
+scipy>=1.7.0
+matplotlib>=3.5.0
+shapely>=1.8.0
+
+# Otimização e algoritmos genéticos
+deap>=1.3.0
+
+# Processamento de dados
+pandas>=1.3.0
+scikit-learn>=1.0.0
+
+# Processamento paralelo
+joblib>=1.1.0
+
+# Arquivos de configuração
+PyYAML>=6.0
+
+# Visualização
+seaborn>=0.11.0
+
+# Desenvolvimento e testes
+pytest>=6.0.0
+pytest-cov>=2.12.0
+black>=21.0.0
+flake8>=3.9.0
+
+# Documentação
+sphinx>=4.0.0
+sphinx-rtd-theme>=0.5.0
