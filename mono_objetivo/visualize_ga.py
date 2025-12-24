@@ -22,7 +22,7 @@ toolbox = base.Toolbox()
 # Parâmetros
 IND_SIZE = 16  # Número de turbinas
 CIRCLE_RADIUS = 1300  # Raio do círculo
-N_DIAMETERS = 260  # 2 diâmetros de distância no mínimo
+N_DIAMETERS = 2*130  # 2 diâmetros de distância no mínimo
 
 def create_individual_from_coordinates(coords):
     individual = creator.Individual(np.array(coords).flatten().tolist())

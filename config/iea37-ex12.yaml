@@ -1,0 +1,48 @@
+input_format_version: 0
+title: IEA Wind Task 37 Combined Case Study 12 Turbine Farm (Ararangua)
+description: Initial layout for 12 turbines in a circular pattern for Ararangua optimization.
+
+definitions:
+  wind_plant:
+    type: object
+    description: specific plant design including turbine selection and placement
+    properties:
+      layout:
+        type: array
+        items:
+          - $ref: "#/definitions/position"
+          - $ref: "iea37-335mw.yaml"    # Reference for the .yaml containing turbine attributes.
+
+  position:
+    type: array
+    items:
+      xc: [1000.00, 866.03, 500.00, 0.00, -500.00, -866.03, -1000.00, -866.03, -500.00, 0.00, 500.00, 866.03]
+      yc: [0.00, 500.00, 866.03, 1000.00, 866.03, 500.00, 0.00, -500.00, -866.03, -1000.00, -866.03, -500.00]
+    additionalItems: false
+    description: an array of x-coordinates [x0, x1, ...] and y-coordinates [y0, y1, ...] of wind turbine positions in cartesian coordinates
+    units: m          
+
+  plant_energy:
+    type: object
+    description: energy production from simplified Bastankhah Gaussian wake model
+
+    properties:
+      wake_model_selection:
+        type: algorithm
+        description: wake model used to calculate AEP
+        items:
+          - $ref: "iea37-aepcalc.py"
+
+      wind_resource_selection:
+        type: object
+        description: specific wind resource used to calculate AEP
+        properties:
+          type: array
+          items:
+            - $ref: "ararangua-windrose.yaml"       # Reference for the .yaml containing the wind rose
+
+      annual_energy_production:
+        type: number
+        description: binned and total (default) annual energy production for a wind plant given a layout and binned wind rose
+        default: 0.0 # Placeholder, will be calculated by the optimization
+        units: MWh
