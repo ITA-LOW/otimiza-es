@@ -179,7 +179,7 @@ def main():
         for ind, fit in zip(invalid_ind, fitnesses):
             ind.fitness.values = fit
             
-        pop = toolbox.select(offspring + pop, MU)
+        pop = toolbox.select(offspring + pop, POP)
         pareto_front.update(pop)
 
         record = stats.compile(pop)
