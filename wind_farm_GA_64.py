@@ -2,7 +2,7 @@ import yaml
 import numpy as np
 from deap import base, creator, tools, algorithms
 import random
-from iea37_aepcalc import calcAEP, getTurbLocYAML, getWindRoseYAML, getTurbAtrbtYAML
+from config.iea37_aepcalc import calcAEP, getTurbLocYAML, getWindRoseYAML, getTurbAtrbtYAML
 #from plot import plot_solution, plot_fitness, save_logbook_to_csv
 import multiprocessing
 import time
@@ -24,7 +24,7 @@ def create_individual_from_coordinates(coords):
     return individual
 
 # Carregando coordenadas iniciais
-initial_coordinates, _, _ = getTurbLocYAML('artigo_1/iea37-ex64.yaml')
+initial_coordinates, _, _ = getTurbLocYAML('config/iea37-ex64.yaml')
 toolbox.register("individual", create_individual_from_coordinates, coords=initial_coordinates.tolist())
 toolbox.register("population", tools.initRepeat, list, toolbox.individual)
 
@@ -47,44 +47,10 @@ def enforce_circle(individual):
             individual[2*i] = distance * np.cos(angle)
             individual[2*i + 1] = distance * np.sin(angle)
 
-# Função de avaliação
-def evaluate(individual):
-    # Carregando os dados dos arquivos YAML
-    turb_coords, fname_turb, fname_wr = getTurbLocYAML("artigo_1/iea37-ex64.yaml")
-    turb_ci, turb_co, rated_ws, rated_pwr, turb_diam = getTurbAtrbtYAML("iea37-335mw.yaml")
-    wind_dir, wind_freq, wind_speed = getWindRoseYAML("iea37-windrose.yaml")
-
-    # Convertendo o indivíduo para coordenadas de turbinas
-    turb_coords = np.array(individual).reshape((IND_SIZE, 2))
-    
-   
-    penalty_out_of_circle = 0
-    penalty_close_turbines = 0
-    
-    for x, y in turb_coords:
-        if not is_within_circle(x, y, CIRCLE_RADIUS):
-            penalty_out_of_circle += 1e6  # Penalização ajustada se a turbina estiver fora do círculo
-
-    # Penaliza se as turbinas estão muito próximas
-    min_distance = N_DIAMETERS  # Distância mínima entre turbinas
-    for i in range(len(turb_coords)):
-        for j in range(i + 1, len(turb_coords)):
-            dist = np.linalg.norm(turb_coords[i] - turb_coords[j])
-            if dist < min_distance:
-                penalty_close_turbines += 1e6  # Penalização ajustada se a turbina estiver muito próxima de outra
-    
-    # Calculando o AEP
-    aep = calcAEP(turb_coords, wind_freq, wind_speed, wind_dir, turb_diam, turb_ci, turb_co, rated_ws, rated_pwr)
-    
-    # Penalizando a solução se tiver turbinas fora do círculo ou muito próximas
-    fitness = np.sum(aep) - penalty_out_of_circle - penalty_close_turbines
-    
-    return fitness,
-
 # Pré-carrega os dados fora da função evaluate:
-TURB_LOC_DATA = getTurbLocYAML("artigo_1/iea37-ex64.yaml")
-TURB_ATRBT_DATA = getTurbAtrbtYAML("iea37-335mw.yaml")
-WIND_ROSE_DATA = getWindRoseYAML("iea37-windrose.yaml")
+TURB_LOC_DATA = getTurbLocYAML("config/iea37-ex64.yaml")
+TURB_ATRBT_DATA = getTurbAtrbtYAML("config/iea37-335mw.yaml")
+WIND_ROSE_DATA = getWindRoseYAML("config/iea37-windrose.yaml")
 
 def evaluate_otimizado(individual, turb_loc_data=TURB_LOC_DATA,
              turb_atrbt_data=TURB_ATRBT_DATA,
@@ -139,7 +105,7 @@ def mutate(individual, mu, sigma, indpb):
 # Operadores genéticos
 toolbox.register("mate", tools.cxBlend, alpha=0.5)
 toolbox.register("mutate", mutate, mu=0, sigma=100, indpb=0.20) 
-toolbox.register("select", tools.selTournament, tournsize=7)
+toolbox.register("select", tools.selTournament, tournsize=5)
 toolbox.register("evaluate", evaluate_otimizado)
 
 # Configuração da otimização
@@ -165,7 +131,7 @@ def main():
     max_fitness_data = []
 
     # Loop principal de otimização
-    pop, logbook = algorithms.eaSimple(pop, toolbox, cxpb=0.8, mutpb=0.2, ngen=1500, 
+    pop, logbook = algorithms.eaSimple(pop, toolbox, cxpb=0.8, mutpb=0.2, ngen=300, 
                                         stats=stats, halloffame=hof, verbose=True)
     
     # Fechando o pool para liberar os recursos

@@ -1,0 +1,110 @@
+--- ANÁLISE DE PICOS ---
+Picos altos detectados: 187
+Picos baixos detectados: 189
+  Intervalo médio entre picos altos: 9.0 ± 6.7
+  Intervalo mínimo: 2, máximo: 21
+  Intervalo médio entre picos baixos: 9.0 ± 6.8
+  Intervalo mínimo: 2, máximo: 21
+
+--- ANÁLISE DE FREQUÊNCIA (FFT) ---
+Top 5 frequências dominantes:
+  1. Frequência: 0.0502, Período: 19.9 pontos, Magnitude: 743.29
+  2. Frequência: 0.0496, Período: 20.2 pontos, Magnitude: 398.61
+  3. Frequência: 0.0998, Período: 10.0 pontos, Magnitude: 282.40
+  4. Frequência: 0.1500, Período: 6.7 pontos, Magnitude: 207.15
+  5. Frequência: 0.0508, Período: 19.7 pontos, Magnitude: 160.97
+
+--- AUTOCORRELAÇÃO ---
+Primeiro pico de autocorrelação no lag: 20 pontos
+Valor da autocorrelação: 0.7343
+
+--- ESTATÍSTICAS ---
+Média: 8696531.01
+Desvio Padrão: 231967.79
+Coeficiente de Variação: 0.0267
+Skewness: -1.2363
+Kurtosis: 3.7728
+
+======================================================================
+Analisando: teste150.csv
+======================================================================
+✓ Coluna encontrada: 'AEP'
+✓ Total de valores: 398
+✓ Intervalo: [-2690110.86, 14846942.22]
+
+--- ANÁLISE DE PICOS ---
+Picos altos detectados: 40
+Picos baixos detectados: 46
+  Intervalo médio entre picos altos: 9.8 ± 7.4
+  Intervalo mínimo: 2, máximo: 22
+  Intervalo médio entre picos baixos: 8.4 ± 6.7
+  Intervalo mínimo: 2, máximo: 19
+
+--- ANÁLISE DE FREQUÊNCIA (FFT) ---
+Top 5 frequências dominantes:
+  1. Frequência: 0.0503, Período: 19.9 pontos, Magnitude: 202.36
+  2. Frequência: 0.1005, Período: 9.9 pontos, Magnitude: 86.70
+  3. Frequência: 0.2789, Período: 3.6 pontos, Magnitude: 30.26
+  4. Frequência: 0.1508, Período: 6.6 pontos, Magnitude: 29.90
+  5. Frequência: 0.1482, Período: 6.7 pontos, Magnitude: 29.69
+
+--- AUTOCORRELAÇÃO ---
+Primeiro pico de autocorrelação no lag: 20 pontos
+Valor da autocorrelação: 0.5959
+
+--- ESTATÍSTICAS ---
+Média: 11875325.62
+Desvio Padrão: 3192703.23
+Coeficiente de Variação: 0.2689
+Skewness: -1.4228
+Kurtosis: 2.0116
+
+======================================================================
+Analisando: teste60.csv
+======================================================================
+✓ Coluna encontrada: 'AEP'
+✓ Total de valores: 2346
+✓ Intervalo: [5721975.62, 7042877.69]
+
+--- ANÁLISE DE PICOS ---
+Picos altos detectados: 256
+Picos baixos detectados: 247
+  Intervalo médio entre picos altos: 9.1 ± 6.8
+  Intervalo mínimo: 2, máximo: 21
+  Intervalo médio entre picos baixos: 9.5 ± 7.2
+  Intervalo mínimo: 2, máximo: 20
+
+--- ANÁLISE DE FREQUÊNCIA (FFT) ---
+Top 5 frequências dominantes:
+  1. Frequência: 0.0499, Período: 20.1 pontos, Magnitude: 1055.25
+  2. Frequência: 0.0503, Período: 19.9 pontos, Magnitude: 555.51
+  3. Frequência: 0.1002, Período: 10.0 pontos, Magnitude: 448.05
+  4. Frequência: 0.1500, Período: 6.7 pontos, Magnitude: 332.93
+  5. Frequência: 0.0494, Período: 20.2 pontos, Magnitude: 261.78
+
+--- AUTOCORRELAÇÃO ---
+Primeiro pico de autocorrelação no lag: 20 pontos
+Valor da autocorrelação: 0.8426
+
+--- ESTATÍSTICAS ---
+Média: 6827391.58
+Desvio Padrão: 128184.48
+Coeficiente de Variação: 0.0188
+Skewness: -0.6606
+Kurtosis: 1.1256
+
+======================================================================
+RESUMO GERAL
+======================================================================
+
+teste.csv:
+  Período dominante: 19.9 pontos
+  Picos altos/baixos: 187/189
+
+teste150.csv:
+  Período dominante: 19.9 pontos
+  Picos altos/baixos: 40/46
+
+teste60.csv:
+  Período dominante: 20.1 pontos
+  Picos altos/baixos: 256/247

@@ -1,7 +1,7 @@
 # Dependências principais
-numpy>=1.21.0
-scipy>=1.7.0
-matplotlib>=3.5.0
+deap
+numpy
+matplotlib
 shapely>=1.8.0
 
 # Otimização e algoritmos genéticos
