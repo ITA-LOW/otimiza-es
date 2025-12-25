@@ -30,7 +30,7 @@ CIRCLE_RADIUS = 1300  # Raio para o posicionamento das turbinas
 MIN_TURB_DIST_IN_DIAMETERS = 2.0
 SUBSTATION_BOUNDS = [-1500, -1300, -100, 100]  # [xmin, xmax, ymin, ymax]
 N_GRUPOS_CABEAMENTO = int(np.sqrt(IND_SIZE))
-N_SAMPLES = 5000  # Número de amostras de dados a serem geradas
+N_SAMPLES = 500000  # Número de amostras de dados a serem geradas
 REPRODUCIBILITY_SEED = 42  # Semente para garantir que o LHS gere sempre os mesmos layouts
 
 # --- 2. Pré-carregamento de Dados (essencial para a função de avaliação) ---
