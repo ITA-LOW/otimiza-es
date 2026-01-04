@@ -211,20 +211,20 @@ def balancear_grupos(grupos, vectors, alvo=4):
 # tornando o script reutilizável.
 # ================================================
 
-def analisar_layout_completo(coordenadas, substation_idx, n_grupos=4, Vn=33e3, P_turbina=3.35e6):
+def analisar_layout_completo(coordenadas, sub, n_grupos=8, Vn=33e3, P_turbina=3.35e6):
     """
     Função principal que encapsula toda a análise de cabeamento para um dado layout.
     Recebe as coordenadas e retorna o objeto Plant e um dicionário de resultados.
     """
     # 1. Roteamento (lógica original do if __name__ == '__main__')
-    grupos = agrupar_torres_por_cosseno(coordenadas, substation_idx, n_grupos)
-    vectors = coordenadas - coordenadas[substation_idx]
+    grupos = agrupar_torres_por_cosseno(coordenadas, sub, n_grupos)
+    vectors = coordenadas - coordenadas[sub]
     grupos_balanceados = balancear_grupos(grupos, vectors)
     paths = []
     for grupo in grupos_balanceados:
-        distancias = [np.linalg.norm(coordenadas[t] - coordenadas[substation_idx]) for t in grupo]
+        distancias = [np.linalg.norm(coordenadas[t] - coordenadas[sub]) for t in grupo]
         ordenado = [x for _, x in sorted(zip(distancias, grupo), reverse=True)]
-        paths.append(ordenado + [substation_idx])
+        paths.append(ordenado + [sub])
         
     # 2. Análise da Planta
     turbinas = [Turbine(P_turbina, x, y) for x, y in coordenadas]
@@ -244,7 +244,7 @@ def analisar_layout_completo(coordenadas, substation_idx, n_grupos=4, Vn=33e3, P
     }
     return planta, resultados
 
-def plotar_cabeamento(planta, coordenadas, substation_idx, titulo="Layout do Cabeamento", output_filename=None):
+def plotar_cabeamento(planta, coordenadas, sub, titulo="Layout do Cabeamento", output_filename=None):
     """
     Gera e, opcionalmente, salva um gráfico visual do layout do cabeamento.
     """
@@ -264,10 +264,10 @@ def plotar_cabeamento(planta, coordenadas, substation_idx, titulo="Layout do Cab
         y = [coordenadas[node][1] for node in path]
         plt.plot(x, y, 'o-', linewidth=2, color=cores[i], markersize=8, markeredgecolor='black', label=f'String {i+1}')
         for node in path:
-            if node != substation_idx:
+            if node != sub:
                 plt.text(coordenadas[node][0] + 20, coordenadas[node][1] + 20, str(node), fontsize=font_config['node_label'], color='black', weight='bold')
     
-    plt.scatter(coordenadas[substation_idx][0], coordenadas[substation_idx][1], c='yellow', s=300, marker='*', edgecolors='black', label='Substation')
+    plt.scatter(coordenadas[sub][0], coordenadas[sub][1], c='yellow', s=300, marker='*', edgecolors='black', label='subtation')
     
     plt.title(titulo, fontsize=font_config['title'], weight='bold')
     plt.xlabel("X (m)", fontsize=font_config['axis_label'])
@@ -297,14 +297,25 @@ if __name__ == "__main__":
     print("--- Executando cabling.py em modo de teste ---")
     
     # Os dados hardcoded agora vivem apenas dentro deste bloco de teste.
-    xc = [217.1318, 632.0749, 390.8865, -297.0288, -404.0059, -2.4942, 1225.5394, 803.2198, -157.8242, -400.0358, -905.9706, -941.3880, -919.6192, -554.0770, 88.1859, 1046.1122]
-    yc = [-10.8616, -303.8115, 527.8258, 369.1482, -143.1543, -720.3132, 180.9871, 838.3006, 1288.9396, 1053.7255, 699.5176, 219.8943, -864.9837, -1010.4634, -1161.8600, -510.4389]
-
-    substation_idx_teste = 0
-    coordenadas_teste = np.array(list(zip(xc, yc)))
+    x_opt = [0., 750., 231.7627, -606.7627, -606.7627, 231.7627, 1500., 1299.0381, 750., 0.,
+           -750., -1299.0381, -1500., -1299.0381, -750., 0., 750., 1299.0381, 2250, 2114.3084,
+           1723.6, 1125., 390.7084, -390.7084, -1125., -1723.6, -2114.3084, -2250., -2114.3084, -1723.6,
+           -1125, -390.7084, 390.7084, 1125., 1723.6, 2114.3084, 3000., 2924.7837, 2702.9066, 2345.4944,
+           1870.4694, 1301.6512, 667.5628, 0., -667.5628, -1301.6512, -1870.4694, -2345.4944, -2702.9066, -2924.7837,
+           -3000., -2924.7837, -2702.9066, -2345.4944, -1870.4694, -1301.6512, -667.5628, 0., 667.5628, 1301.6512,
+           1870.4694, 2345.4944, 2702.9066, 2924.7837]
+    y_opt = [0., 0., 713.2924, 440.8389, -440.8389, -713.2924, 0., 750., 1299.0381, 1500,
+            1299.0381, 750., 0., -750., -1299.0381, -1500., -1299.0381, -750., 0., 769.5453,
+            1446.2721, 1948.5572, 2215.8174, 2215.8174, 1948.5572, 1446.2721, 769.5453, 0., -769.5453, -1446.2721,
+            -1948.5572, -2215.8174, -2215.8174, -1948.5572, -1446.2721, -769.5453, 0., 667.5628, 1301.6512, 1870.4694,
+            2345.4944, 2702.9066, 2924.7837, 3000., 2924.7837, 2702.9066, 2345.4944, 1870.4694, 1301.6512, 667.5628,
+            0., -667.5628, -1301.6512, -1870.4694, -2345.4944, -2702.9066, -2924.7837, -3000., -2924.7837, -2702.9066,
+            -2345.4944, -1870.4694, -1301.6512, -667.5628]
+    sub_teste = 35
+    coordenadas_teste = np.array(list(zip(x_opt, y_opt)))
 
     # 1. Chamar a nova função orquestradora
-    planta_teste, resultados_teste = analisar_layout_completo(coordenadas_teste, substation_idx_teste)
+    planta_teste, resultados_teste = analisar_layout_completo(coordenadas_teste, sub_teste)
     
     # 2. Imprimir os relatórios (usando os métodos da classe, como antes)
     planta_teste.print_turbines()
@@ -316,4 +327,4 @@ if __name__ == "__main__":
 
     # 4. Gerar o gráfico interativo (como antes)
     titulo_teste = f"Visualização de Teste do Módulo\nCusto: $ {resultados_teste['custo_total_usd']/1e6:.2f} mi | Perda Anual: {resultados_teste['perda_anual_mwh']:.2f} MWh"
-    plotar_cabeamento(planta_teste, coordenadas_teste, substation_idx_teste, titulo=titulo_teste)
+    plotar_cabeamento(planta_teste, coordenadas_teste, sub_teste, titulo=titulo_teste)

@@ -24,7 +24,7 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, project_root)
 
 from config.iea37_aepcalc import calcAEP, getTurbLocYAML, getWindRoseYAML, getTurbAtrbtYAML
-from multi_objetivo.cabling import analisar_layout_completo
+from multi_objetivo.cabling_v1 import analisar_layout_completo
 
 # --- 1. CONFIGURAÇÃO DA DEAP (igual ao original) ---
 creator.create("FitnessMulti", base.Fitness, weights=(1.0, -1.0))

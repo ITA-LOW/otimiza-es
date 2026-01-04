@@ -9,7 +9,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 
 import numpy as np
 import pandas as pd
-import cabling # Importa nosso módulo refatorado
+import multi_objetivo.cabling_v1 as cabling_v1 # Importa nosso módulo refatorado
 import matplotlib.pyplot as plt
 
 # =============================================================================
@@ -185,7 +185,7 @@ def main():
         sub_idx = np.argmin(distancias_ao_continente)
         
         # Analisar o cabeamento para obter o objeto 'planta'
-        planta, _ = cabling.analisar_layout_completo(coords, sub_idx)
+        planta, _ = cabling_v1.analisar_layout_completo(coords, sub_idx)
         
         # Criar um título descritivo para o gráfico
         titulo = (f"Arquétipo: {nome_arquetipo.replace('_', ' ').title()}\n"
@@ -194,7 +194,7 @@ def main():
         
         # Gerar e salvar a imagem
         output_filename = os.path.join(OUTPUT_DIR, f"arquetipo_{nome_arquetipo}.png")
-        cabling.plotar_cabeamento(planta, coords, sub_idx, titulo=titulo, output_filename=output_filename)
+        cabling_v1.plotar_cabeamento(planta, coords, sub_idx, titulo=titulo, output_filename=output_filename)
 
     print("\nProcesso concluído com sucesso!")
     print(f"As imagens dos 3 layouts arquétipo foram salvas em '{OUTPUT_DIR}/'.")
