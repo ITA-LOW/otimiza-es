@@ -53,10 +53,34 @@ class Turbine:
 
 
 class Plant:
+        
+    # Multiplicador NREL (0.3476 USD/m por mm2) * 3 condutores
+    NREL_UNIT_COST = 0.3476 * 3  # 1.0428
+
     INDUSTRIAL_CABLE_COSTS = {
-        50: 69.52, 70: 97.33, 95: 132.09, 120: 166.85,
-        150: 208.56, 185: 257.22, 240: 333.70
+        50: 52.14,   # 50 * 1.0428
+        70: 72.99,   # 70 * 1.0428
+        95: 99.07,   # 95 * 1.0428
+        120: 125.14, # 120 * 1.0428
+        150: 156.42, # 150 * 1.0428
+        185: 192.92, # 185 * 1.0428
+        240: 250.27  # 240 * 1.0428
     }
+
+    """
+    INDUSTRIAL_CABLE_COSTS Justification:
+    These values represent the discrete instantiation of the NREL marine-energy cost model 
+    (Nakhai et al., 2023). The baseline linear model defines costs as:
+    Cost [USD/m] = 0.3476 * CSA * N_cond.
+
+    For a three-phase inter-array system (N_cond = 3), the linear trend is mapped to 
+    commercially available cross-sections (50 to 240 mm2) to simulate real-world 
+    procurement constraints within the NSGA-II optimization loop. This ensures 
+    Objective f2 (CAPEX) reflects discrete industrial steps rather than continuous 
+    approximations.
+    """
+
+
 
     def __init__(self, Vn, Tr, paths):
         self.Vn = Vn
@@ -115,69 +139,64 @@ class Plant:
         return self.cables_flat[0].A
 
 # ======================================================
-# AGRUPAMENTO ANGULAR + BALANCEAMENTO RÁPIDO
+# AGRUPAMENTO ANGULAR (SEM BALANCEAMENTO)
 # ======================================================
 
 def agrupar_por_setor_angular(coords, sub, n_grupos):
+    """
+    Agrupa turbinas por setores angulares contíguos em relação à subestação.
+    Garante que cada grupo seja uma fatia angular estritamente separada.
+    """
+    # Calcula vetores da subestação para cada turbina
     v = coords - coords[sub]
-    ang = np.arctan2(v[:,1], v[:,0])
-    ang[sub] = np.nan
-
-    idx = np.argsort(ang)
-    idx = idx[~np.isnan(ang[idx])]
-
-    grupos = np.array_split(idx, n_grupos)
-    return [list(g) for g in grupos]
-
-
-def balancear_grupos_rapido(grupos, SIM, alvo, max_swaps=200):
-    grupos = [g.copy() for g in grupos]
-
-    def score(t, g):
-        return np.mean(SIM[t, g]) if g else -1
-
-    for _ in range(max_swaps):
-        grandes = [i for i,g in enumerate(grupos) if len(g) > alvo]
-        pequenos = [i for i,g in enumerate(grupos) if len(g) < alvo]
-
-        if not grandes or not pequenos:
-            break
-
-        i = np.random.choice(grandes)
-        j = np.random.choice(pequenos)
-
-        t = min(grupos[i], key=lambda x: score(x, grupos[i]))
-        ganho = score(t, grupos[j]) - score(t, grupos[i])
-
-        if ganho > 0:
-            grupos[i].remove(t)
-            grupos[j].append(t)
-
-    return grupos
+    
+    # Calcula ângulos de todas as turbinas em relação à subestação
+    ang = np.arctan2(v[:, 1], v[:, 0])
+    
+    # Remove a subestação do cálculo (seu ângulo não importa)
+    # Cria array de índices excluindo a subestação
+    indices_turbinas = np.array([i for i in range(len(coords)) if i != sub])
+    angulos_turbinas = ang[indices_turbinas]
+    
+    # Ordena índices por ângulo (ordem angular crescente)
+    idx_ordenado = indices_turbinas[np.argsort(angulos_turbinas)]
+    
+    # Divide em n_grupos fatias angulares contíguas usando array_split
+    grupos = np.array_split(idx_ordenado, n_grupos)
+    
+    # Converte para listas e remove grupos vazios
+    grupos_filtrados = [list(g) for g in grupos if len(g) > 0]
+    
+    return grupos_filtrados
 
 # ======================================================
 # FUNÇÃO PRINCIPAL
 # ======================================================
 
 def analisar_layout_completo(coords, sub, n_grupos=15, Vn=33e3, P_turb=3.35e6):
+    """
+    Analisa layout completo com agrupamento angular estrito.
+    Cada grupo é uma fatia angular contígua, sem balanceamento que cause cruzamentos.
+    """
     N = len(coords)
-
-    vectors = coords - coords[sub]
-    norms = np.linalg.norm(vectors, axis=1, keepdims=True)
-    norms[norms == 0] = 1
-    vectors /= norms
-
-    SIM = vectors @ vectors.T
-
+    
+    # Agrupa turbinas por setores angulares contíguos
     grupos = agrupar_por_setor_angular(coords, sub, n_grupos)
-
-    alvo = int(np.ceil((N - 1) / n_grupos))
-    grupos = balancear_grupos_rapido(grupos, SIM, alvo)
-
+    
+    # Cria paths: dentro de cada grupo, ordena por distância radial decrescente
     paths = []
     for g in grupos:
-        d = [np.linalg.norm(coords[t] - coords[sub]) for t in g]
-        ordenado = [t for _, t in sorted(zip(d, g), reverse=True)]
+        if len(g) == 0:
+            continue
+        
+        # Calcula distâncias de cada turbina do grupo à subestação
+        distancias = [np.linalg.norm(coords[t] - coords[sub]) for t in g]
+        
+        # Ordena por distância decrescente (mais longe primeiro)
+        # Isso garante ordem radial estrita: da turbina mais distante para a mais próxima
+        ordenado = [t for _, t in sorted(zip(distancias, g), reverse=True)]
+        
+        # Adiciona subestação no final do path
         paths.append(ordenado + [sub])
 
     turbinas = [Turbine(P_turb, x, y) for x, y in coords]

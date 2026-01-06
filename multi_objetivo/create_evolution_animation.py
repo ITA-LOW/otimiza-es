@@ -56,6 +56,8 @@ def load_generation_file(filename):
     cost = None
     phase = 1  # Default
     n_grupos = None
+    substation_x = None
+    substation_y = None
     for line in lines:
         if line.startswith('aep:'):
             aep = float(line.split(':')[1].strip())
@@ -65,8 +67,16 @@ def load_generation_file(filename):
             phase = int(line.split(':')[1].strip())
         elif line.startswith('n_grupos:'):
             n_grupos = int(line.split(':')[1].strip())
+        elif line.startswith('substation_x:'):
+            substation_x = float(line.split(':')[1].strip())
+        elif line.startswith('substation_y:'):
+            substation_y = float(line.split(':')[1].strip())
     
-    return coords, aep, cost, phase, n_grupos
+    substation_pos = None
+    if substation_x is not None and substation_y is not None:
+        substation_pos = np.array([substation_x, substation_y])
+    
+    return coords, aep, cost, phase, n_grupos, substation_pos
 
 def get_generation_files():
     """Retorna lista de arquivos de geração ordenados (Fase 1 + Fase 2)."""
@@ -102,7 +112,7 @@ def create_animation():
     print("Carregando dados e calculando cabeamento para Fase 2...")
     print(f"AVISO: Arquivos antigos podem não ter 'n_grupos' salvo. Usando valor padrão.")
     
-    # Carrega todos os dados
+    # Carrega todos os dados (agora usa apenas best.txt com melhor trade-off)
     all_coords = []
     all_aep = []
     all_cost = []
@@ -111,10 +121,10 @@ def create_animation():
     all_n_grupos = []
     all_cabling_paths = []  # Armazena caminhos de cabeamento para Fase 2
     
-    SUBSTATION_CONTINENT = np.array([[-1.0, -1350.0]])
+    SUBSTATION_CONTINENT = np.array([[-1.0, -1350.0]])  # Fallback se não houver posição salva
     
     for filename in files:
-        coords, aep, cost, phase, n_grupos = load_generation_file(filename)
+        coords, aep, cost, phase, n_grupos, substation_pos = load_generation_file(filename)
         all_coords.append(coords)
         all_aep.append(aep)
         all_cost.append(cost)
@@ -130,9 +140,15 @@ def create_animation():
         cabling_paths = None
         if phase == 2 and CABLING_AVAILABLE:
             try:
-                # Encontra ponto de coleta mais próximo do continente
-                distancias_ao_continente = np.linalg.norm(coords - SUBSTATION_CONTINENT, axis=1)
-                ponto_de_coleta_idx = np.argmin(distancias_ao_continente)
+                # Usa posição da subestação do arquivo, ou fallback para encontrar turbina mais próxima do continente
+                if substation_pos is not None:
+                    # Encontra turbina mais próxima da subestação otimizada
+                    distancias_subestacao = np.linalg.norm(coords - substation_pos, axis=1)
+                    ponto_de_coleta_idx = np.argmin(distancias_subestacao)
+                else:
+                    # Fallback: encontra ponto de coleta mais próximo do continente (arquivos antigos)
+                    distancias_ao_continente = np.linalg.norm(coords - SUBSTATION_CONTINENT, axis=1)
+                    ponto_de_coleta_idx = np.argmin(distancias_ao_continente)
                 
                 # Usa n_grupos do arquivo ou tenta inferir do custo
                 # Se não tem n_grupos salvo, usa valor padrão baseado no número de turbinas
@@ -149,9 +165,18 @@ def create_animation():
                 
                 # Debug: mostra quantos paths foram calculados
                 if len(all_coords) % 50 == 0:  # Print a cada 50 frames
-                    print(f"  Frame {len(all_coords)}: {len(cabling_paths)} paths de cabeamento, n_grupos={n_grupos_to_use}")
+                    cost_str = f"{cost:.2f}" if cost is not None else "N/A"
+                    print(f"  Frame {len(all_coords)}: {len(cabling_paths)} paths de cabeamento, n_grupos={n_grupos_to_use}, cost={cost_str}")
                     if len(cabling_paths) > 0:
                         print(f"    Exemplo path[0]: {cabling_paths[0]}")
+                        # Verifica se paths mudaram em relação ao anterior
+                        if len(all_cabling_paths) > 0 and all_cabling_paths[-1] is not None:
+                            prev_paths = all_cabling_paths[-1]
+                            if len(prev_paths) == len(cabling_paths):
+                                paths_changed = any(prev_paths[i] != cabling_paths[i] for i in range(len(prev_paths)))
+                                print(f"    Paths mudaram: {paths_changed}")
+                            else:
+                                print(f"    Número de paths mudou: {len(prev_paths)} -> {len(cabling_paths)}")
             except Exception as e:
                 # Mostra erro apenas para debug (pode ser removido depois)
                 if len(all_coords) % 50 == 0:
@@ -222,6 +247,9 @@ def create_animation():
         cost_ymin = cost_min_real - cost_range * 0.02
         cost_ymax = cost_max_real + cost_range * 0.02
         print(f"Escala de custo calculada: ${cost_min_real:,.0f} - ${cost_max_real:,.0f}")
+        print(f"  Total de {len(phase2_costs)} valores de custo na Fase 2")
+        print(f"  Primeiros 5 custos: {[f'${c:,.0f}' for c in phase2_costs[:5]]}")
+        print(f"  Últimos 5 custos: {[f'${c:,.0f}' for c in phase2_costs[-5:]]}")
     else:
         cost_ymin = None
         cost_ymax = None
@@ -249,10 +277,6 @@ def create_animation():
         
         # Desenha linhas de cabeamento (apenas Fase 2)
         if phase == 2 and cabling_paths is not None and len(cabling_paths) > 0:
-            # Debug: verifica se paths estão sendo processados
-            if frame < 5 or frame % 50 == 0:
-                print(f"  Desenhando frame {frame}: {len(cabling_paths)} paths, coords shape: {coords.shape}")
-            
             # Usa cores distintas para cada string/grupo
             colors = plt.cm.tab10(np.linspace(0, 1, min(len(cabling_paths), 10)))
             paths_drawn = 0
@@ -268,10 +292,6 @@ def create_animation():
                                         label=f'String {i+1}' if i < 5 else '')
                         cabling_lines_container.append(line)
                         paths_drawn += 1
-            
-            # Debug: mostra quantos paths foram desenhados
-            if frame < 5 or frame % 50 == 0:
-                print(f"    Paths desenhados: {paths_drawn}/{len(cabling_paths)}")
         
         # Atualiza layout
         scatter.set_offsets(coords)
@@ -306,8 +326,16 @@ def create_animation():
             if len(phase2_costs) > 0:
                 line_cost.set_data(phase2_gens, phase2_costs)
                 line_cost.set_visible(True)
-                # Reaplica limites fixos se foram definidos
-                if cost_ymin is not None and cost_ymax is not None:
+                # Recalcula escala dinamicamente baseado nos dados atuais
+                current_cost_min = min(phase2_costs)
+                current_cost_max = max(phase2_costs)
+                current_range = current_cost_max - current_cost_min
+                if current_range > 0:
+                    # Usa escala atual com margem de 2%
+                    ax2_twin.set_ylim(current_cost_min - current_range * 0.02, 
+                                     current_cost_max + current_range * 0.02)
+                elif cost_ymin is not None and cost_ymax is not None:
+                    # Fallback para escala global se range for zero
                     ax2_twin.set_ylim(cost_ymin, cost_ymax)
             else:
                 line_cost.set_data([], [])

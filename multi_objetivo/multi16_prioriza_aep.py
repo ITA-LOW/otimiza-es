@@ -56,7 +56,7 @@ toolbox_phase2 = base.Toolbox()
 IND_SIZE = 16
 CIRCLE_RADIUS = 1300
 N_DIAMETERS = 260
-SUBSTATION_CONTINENT = np.array([[-1.0, -1350.0]])
+MIN_SUB_TURB_DIST = 50.0  # Distância mínima entre subestação e turbinas (metros)
 
 # Limites para número de grupos de cabeamento (será otimizado pelo AG na Fase 2)
 MIN_GRUPOS = 2   # Mínimo: 2 grupos
@@ -115,8 +115,11 @@ def mutate_phase1(individual, mu, sigma, indpb):
         enforce_circle(individual)
     return creator.IndividualPhase1(individual.tolist()),
 
-def create_individual_phase2_from_coords(coords):
-    """Cria um indivíduo da Fase 2 a partir de coordenadas da Fase 1."""
+def create_individual_phase2_from_coords(coords, substation_pos=None):
+    """
+    Cria um indivíduo da Fase 2 a partir de coordenadas da Fase 1.
+    Estrutura: [32 coords turbinas] + [1 n_grupos] + [2 coords subestação] = 35 variáveis
+    """
     # Garante que coords é um array numpy
     if isinstance(coords, list):
         coords = np.array(coords)
@@ -133,13 +136,29 @@ def create_individual_phase2_from_coords(coords):
     
     # Adiciona número de grupos normalizado
     n_grupos_normalizado = (N_GRUPOS_INICIAL - MIN_GRUPOS) / (MAX_GRUPOS - MIN_GRUPOS)
-    return creator.IndividualPhase2(coords_flat + [n_grupos_normalizado])
+    
+    # Adiciona posição inicial da subestação
+    # Se não fornecida, usa posição aleatória balanceada (não enviesada)
+    if substation_pos is None:
+        # Posição inicial: aleatória em qualquer direção para exploração balanceada
+        # Não enviesar para quadrante inferior permite melhor exploração do espaço
+        angle = random.uniform(0, 2 * np.pi)
+        radius = random.uniform(CIRCLE_RADIUS * 0.2, CIRCLE_RADIUS * 0.7)
+        substation_pos = [
+            radius * np.cos(angle),
+            radius * np.sin(angle)
+        ]
+    
+    return creator.IndividualPhase2(coords_flat + [n_grupos_normalizado] + list(substation_pos))
 
 # Não registramos individual diretamente pois precisamos passar coords dinamicamente
 # Usaremos create_individual_phase2_from_coords diretamente quando necessário
 
 def mutate_phase2(individual, mu, sigma, indpb):
-    """Mutação para Fase 2: coordenadas + número de grupos."""
+    """
+    Mutação para Fase 2: coordenadas das turbinas + número de grupos + posição da subestação.
+    Estrutura: [32 coords turbinas] + [1 n_grupos] + [2 coords subestação] = 35 variáveis
+    """
     individual_arr = np.array(individual)
     n_coords = IND_SIZE * 2
     
@@ -148,10 +167,31 @@ def mutate_phase2(individual, mu, sigma, indpb):
         for i in range(n_coords):
             individual_arr[i] += random.gauss(mu, sigma)
         
-        # Muta número de grupos (último elemento)
+        # Muta número de grupos (índice n_coords)
         if random.random() < 0.3:  # 30% de chance de mutar número de grupos
-            individual_arr[-1] += random.gauss(0, 0.1)
-            individual_arr[-1] = max(0.0, min(1.0, individual_arr[-1]))
+            individual_arr[n_coords] += random.gauss(0, 0.1)
+            individual_arr[n_coords] = max(0.0, min(1.0, individual_arr[n_coords]))
+        
+        # Muta posição da subestação (índices n_coords+1 e n_coords+2)
+        # MUTAÇÃO INDEPENDENTE: sempre tenta mutar a subestação, independente da mutação das turbinas
+        # Isso garante exploração contínua do espaço de busca da subestação
+        if random.random() < 0.9:  # 90% de chance de mutar posição da subestação
+            # Mutação mais ampla: usa sigma maior e permite exploração em área maior
+            mutation_sigma_sub = max(sigma * 5, 200.0)  # Aumentado para 200m mínimo
+            individual_arr[n_coords + 1] += random.gauss(0, mutation_sigma_sub)
+            individual_arr[n_coords + 2] += random.gauss(0, mutation_sigma_sub)
+            
+            # Ocasionalmente (25% das mutações), faz mutação muito agressiva
+            if random.random() < 0.25:
+                # Mutação agressiva: explora até 70% do raio do círculo
+                individual_arr[n_coords + 1] += random.gauss(0, CIRCLE_RADIUS * 0.7)
+                individual_arr[n_coords + 2] += random.gauss(0, CIRCLE_RADIUS * 0.7)
+            
+            # Raramente (10% das mutações), faz mutação extremamente agressiva para exploração global
+            if random.random() < 0.1:
+                # Mutação extrema: explora até 100% do raio do círculo (exploração completa)
+                individual_arr[n_coords + 1] += random.gauss(0, CIRCLE_RADIUS * 1.0)
+                individual_arr[n_coords + 2] += random.gauss(0, CIRCLE_RADIUS * 1.0)
         
         mutated_list = individual_arr.tolist()
         enforce_circle(mutated_list[:n_coords])
@@ -206,69 +246,201 @@ def evaluate_phase1(individual, turb_loc_data=TURB_LOC_DATA_P1,
 # FUNÇÕES DE AVALIAÇÃO - FASE 2 (AEP LÍQUIDO + CUSTO)
 # =============================================================================
 
-def detectar_sobreposicao_cabos(paths, coords):
-    """Detecta sobreposições entre segmentos de cabos."""
+def detectar_sobreposicao_cabos(paths, coords, min_distance=50.0, substation_idx=None):
+    """
+    Detecta cruzamentos, proximidade excessiva e múltiplas conexões na mesma turbina.
+    
+    Args:
+        paths: Lista de caminhos de cabeamento
+        coords: Coordenadas dos pontos (turbinas + subestação)
+        min_distance: Distância mínima permitida entre segmentos de cabos (metros)
+        substation_idx: Índice da subestação (pode ter múltiplas conexões, mas turbinas não)
+    
+    Returns:
+        Penalidade total (cruzamentos + proximidade + múltiplas conexões)
+    """
     def segmentos_intersectam(p1, p2, q1, q2):
-        def orientacao(o, a, b):
-            val = (a[1] - o[1]) * (b[0] - a[0]) - (a[0] - o[0]) * (b[1] - a[1])
-            if abs(val) < 1e-9:
-                return 0
-            return 1 if val > 0 else 2
+        """
+        Verifica se dois segmentos de linha se cruzam usando teste de orientação (CCW).
+        Implementação robusta que evita erros numéricos.
+        """
+        def ccw(o, a, b):
+            """
+            Counter-clockwise test: retorna orientação de três pontos.
+            Retorna: >0 se counter-clockwise, <0 se clockwise, 0 se colineares
+            """
+            return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
         
-        def no_segmento(p, q, r):
-            return (q[0] <= max(p[0], r[0]) and q[0] >= min(p[0], r[0]) and
-                    q[1] <= max(p[1], r[1]) and q[1] >= min(p[1], r[1]))
+        def no_segmento(p, q, r, tol=1e-9):
+            """
+            Verifica se o ponto q está no segmento pr.
+            Usa tolerância para lidar com erros numéricos.
+            """
+            # Verifica se q está na caixa delimitadora de pr
+            if not (min(p[0], r[0]) - tol <= q[0] <= max(p[0], r[0]) + tol):
+                return False
+            if not (min(p[1], r[1]) - tol <= q[1] <= max(p[1], r[1]) + tol):
+                return False
+            # Verifica se q está colinear com pr (usando produto vetorial)
+            cross = abs(ccw(p, q, r))
+            return cross < tol
         
-        o1 = orientacao(p1, p2, q1)
-        o2 = orientacao(p1, p2, q2)
-        o3 = orientacao(q1, q2, p1)
-        o4 = orientacao(q1, q2, p2)
+        # Teste de orientação (CCW) para cada par de pontos
+        o1 = ccw(p1, p2, q1)
+        o2 = ccw(p1, p2, q2)
+        o3 = ccw(q1, q2, p1)
+        o4 = ccw(q1, q2, p2)
         
-        if o1 != o2 and o3 != o4:
+        # Caso geral: segmentos se cruzam se orientações são diferentes
+        if o1 * o2 < 0 and o3 * o4 < 0:
             return True
-        if o1 == 0 and no_segmento(p1, q1, p2):
+        
+        # Casos especiais: pontos colineares
+        tol = 1e-9
+        if abs(o1) < tol and no_segmento(p1, q1, p2, tol):
             return True
-        if o2 == 0 and no_segmento(p1, q2, p2):
+        if abs(o2) < tol and no_segmento(p1, q2, p2, tol):
             return True
-        if o3 == 0 and no_segmento(q1, p1, q2):
+        if abs(o3) < tol and no_segmento(q1, p1, q2, tol):
             return True
-        if o4 == 0 and no_segmento(q1, p2, q2):
+        if abs(o4) < tol and no_segmento(q1, p2, q2, tol):
             return True
+        
         return False
     
-    n_overlaps = 0
+    def distancia_ponto_segmento(p, seg_start, seg_end):
+        """Calcula distância mínima de um ponto a um segmento de linha."""
+        # Vetor do segmento
+        seg_vec = seg_end - seg_start
+        seg_len_sq = np.dot(seg_vec, seg_vec)
+        
+        if seg_len_sq < 1e-9:
+            # Segmento degenerado (ponto)
+            return np.linalg.norm(p - seg_start)
+        
+        # Vetor do início do segmento ao ponto
+        p_vec = p - seg_start
+        
+        # Projeção do ponto no segmento (parâmetro t)
+        t = max(0.0, min(1.0, np.dot(p_vec, seg_vec) / seg_len_sq))
+        
+        # Ponto mais próximo no segmento
+        closest = seg_start + t * seg_vec
+        
+        # Distância do ponto ao segmento
+        return np.linalg.norm(p - closest)
+    
+    def distancia_segmentos(p1, p2, q1, q2):
+        """Calcula distância mínima entre dois segmentos de linha."""
+        # Calcula distância de cada ponto de um segmento ao outro segmento
+        d1 = distancia_ponto_segmento(p1, q1, q2)
+        d2 = distancia_ponto_segmento(p2, q1, q2)
+        d3 = distancia_ponto_segmento(q1, p1, p2)
+        d4 = distancia_ponto_segmento(q2, p1, p2)
+        
+        return min(d1, d2, d3, d4)
+    
+    n_cruzamentos = 0
+    penalty_proximidade = 0.0
+    n_multiplas_conexoes = 0
+    
+    # Detecta múltiplas conexões na mesma turbina (exceto subestação)
+    # Em um sistema de cabeamento em árvore, cada turbina deve aparecer em apenas UM path
+    # Se aparecer em múltiplos paths, há múltiplas conexões (problema)
+    turbina_paths = {}  # {turbina_idx: [lista de paths que contêm essa turbina]}
+    for path_idx, path in enumerate(paths):
+        # Cada turbina no path (exceto a última que é a subestação)
+        for turb_idx in path[:-1]:  # Todas exceto a última (subestação)
+            if turb_idx != substation_idx:  # Ignora subestação
+                if turb_idx not in turbina_paths:
+                    turbina_paths[turb_idx] = []
+                turbina_paths[turb_idx].append(path_idx)
+    
+    # Penaliza turbinas que aparecem em múltiplos paths
+    # Cada turbina deve aparecer em apenas 1 path (exceto subestação)
+    for turb_idx, path_list in turbina_paths.items():
+        if len(path_list) > 1:  # Turbina aparece em múltiplos paths = problema
+            n_multiplas_conexoes += len(path_list) - 1  # Penaliza paths extras
+    
+    # Detecta cruzamentos e proximidade entre segmentos
+    # 1. Cruzamentos DENTRO do mesmo path (intra-string)
+    for path_idx, path in enumerate(paths):
+        for k in range(len(path) - 1):
+            p1 = np.array(coords[path[k]])
+            p2 = np.array(coords[path[k + 1]])
+            
+            # Verifica contra segmentos não consecutivos do mesmo path
+            for l in range(len(path) - 1):
+                # Ignora segmentos consecutivos (são válidos, formam o caminho)
+                if abs(k - l) <= 1:
+                    continue
+                
+                q1 = np.array(coords[path[l]])
+                q2 = np.array(coords[path[l + 1]])
+                
+                # Detecta cruzamentos intra-string
+                if segmentos_intersectam(p1, p2, q1, q2):
+                    n_cruzamentos += 1
+                else:
+                    # Detecta proximidade excessiva intra-string
+                    dist = distancia_segmentos(p1, p2, q1, q2)
+                    if dist < min_distance:
+                        violation = min_distance - dist
+                        penalty_proximidade += violation * (min_distance / max(dist, 1.0)) * 1000
+    
+    # 2. Cruzamentos ENTRE paths diferentes (inter-string)
     for i in range(len(paths)):
         for j in range(i + 1, len(paths)):
             path_i = paths[i]
             path_j = paths[j]
             
             for k in range(len(path_i) - 1):
-                p1 = coords[path_i[k]]
-                p2 = coords[path_i[k + 1]]
+                p1 = np.array(coords[path_i[k]])
+                p2 = np.array(coords[path_i[k + 1]])
                 
                 for l in range(len(path_j) - 1):
-                    q1 = coords[path_j[l]]
-                    q2 = coords[path_j[l + 1]]
+                    q1 = np.array(coords[path_j[l]])
+                    q2 = np.array(coords[path_j[l + 1]])
                     
+                    # Ignora se compartilham pontos (conexões válidas em nós)
                     if (path_i[k] == path_j[l] or path_i[k] == path_j[l + 1] or
                         path_i[k + 1] == path_j[l] or path_i[k + 1] == path_j[l + 1]):
                         continue
                     
+                    # Detecta cruzamentos inter-string
                     if segmentos_intersectam(p1, p2, q1, q2):
-                        n_overlaps += 1
+                        n_cruzamentos += 1
+                    else:
+                        # Detecta proximidade excessiva inter-string
+                        dist = distancia_segmentos(p1, p2, q1, q2)
+                        if dist < min_distance:
+                            violation = min_distance - dist
+                            penalty_proximidade += violation * (min_distance / max(dist, 1.0)) * 1000
     
-    return n_overlaps * 1e6
+    # Penalidade progressiva (não "Death Penalty")
+    # Permite que o AG evolua de soluções com muitos cruzamentos para poucos
+    penalty_cruzamentos = n_cruzamentos * 5e6
+    
+    # Penalidade por múltiplas conexões: alta mas não extrema
+    penalty_multiplas = n_multiplas_conexoes * 1e7
+    
+    # Penalidade total: progressiva, não rejeita completamente
+    penalty_total = penalty_cruzamentos + penalty_proximidade + penalty_multiplas
+    
+    return penalty_total
 
 def evaluate_phase2(individual):
     """
     Fase 2: Avalia AEP líquido + Custo (com cabeamento completo).
-    O número de grupos de cabeamento é extraído do genoma e otimizado pelo AG.
+    Estrutura do indivíduo: [32 coords turbinas] + [1 n_grupos] + [2 coords subestação] = 35 variáveis
+    O número de grupos de cabeamento e a posição da subestação são extraídos do genoma e otimizados pelo AG.
     """
     try:
         n_coords = IND_SIZE * 2
-        # Extrai coordenadas e número de grupos do indivíduo
+        # Extrai coordenadas, número de grupos e posição da subestação do indivíduo
         coords_flat = individual[:n_coords]
-        n_grupos_normalizado = individual[-1]
+        n_grupos_normalizado = individual[n_coords]  # Índice n_coords (32)
+        substation_pos = np.array([individual[n_coords + 1], individual[n_coords + 2]])  # Índices 33 e 34
         
         # Converte número de grupos normalizado para valor real (sempre int)
         n_grupos_float = MIN_GRUPOS + n_grupos_normalizado * (MAX_GRUPOS - MIN_GRUPOS)
@@ -288,15 +460,21 @@ def evaluate_phase2(individual):
         violations_close = close_distances < N_DIAMETERS
         penalty_close_turbines = np.sum(np.maximum(0, N_DIAMETERS - close_distances[violations_close])) * 1e6
         
+        # Penalidade: distância mínima entre subestação e turbinas (50m)
+        dist_sub_to_turbines = np.linalg.norm(turb_coords - substation_pos, axis=1)
+        min_dist_sub_turb = np.min(dist_sub_to_turbines)
+        penalty_sub_too_close = np.maximum(0, MIN_SUB_TURB_DIST - min_dist_sub_turb) * 1e6
+        
         # AEP Bruto
         _, _, _, _, turb_diam = TURB_ATRBT_DATA
         aep_bruto = np.sum(calcAEP(turb_coords, WIND_ROSE_DATA[1], WIND_ROSE_DATA[2], 
                                    WIND_ROSE_DATA[0], turb_diam, *TURB_ATRBT_DATA[0:2], 
                                    *TURB_ATRBT_DATA[2:4]))
 
-        # Cabeamento usando número de grupos do genoma
-        distancias_ao_continente = np.linalg.norm(turb_coords - SUBSTATION_CONTINENT, axis=1)
-        ponto_de_coleta_idx = np.argmin(distancias_ao_continente)
+        # Cabeamento usando posição da subestação do genoma
+        # Encontra a turbina mais próxima da subestação para usar como ponto de coleta
+        distancias_subestacao = np.linalg.norm(turb_coords - substation_pos, axis=1)
+        ponto_de_coleta_idx = np.argmin(distancias_subestacao)
         
         try:
             planta, resultados = cabling_v3.analisar_layout_completo(
@@ -304,10 +482,20 @@ def evaluate_phase2(individual):
             
             custo_total = resultados['custo_total_usd']
             perdas_joule_mwh = resultados['perda_anual_mwh']
-            penalty_overlap = detectar_sobreposicao_cabos(planta.paths, turb_coords)
             
-            aep_liquido = aep_bruto - perdas_joule_mwh - penalty_out_of_circle - penalty_close_turbines - penalty_overlap
-            custo_penalizado = custo_total + penalty_out_of_circle + penalty_close_turbines + penalty_overlap
+            # Detecta cruzamentos, proximidade excessiva e múltiplas conexões
+            # Usa distância mínima de 50m entre segmentos de cabos
+            # Passa índice da subestação para permitir múltiplas conexões nela (mas não em turbinas)
+            penalty_overlap = detectar_sobreposicao_cabos(
+                planta.paths, turb_coords, min_distance=50.0, substation_idx=ponto_de_coleta_idx)
+            
+            # Penalidade progressiva: permite que o AG evolua de soluções com muitos cruzamentos
+            # para soluções com poucos, em vez de descartar tudo. Soluções sem cruzamentos
+            # são claramente superiores, mas soluções com poucos ainda podem ser refinadas.
+            penalty_total_cabos = penalty_overlap
+            
+            aep_liquido = aep_bruto - perdas_joule_mwh - penalty_out_of_circle - penalty_close_turbines - penalty_total_cabos - penalty_sub_too_close
+            custo_penalizado = custo_total + penalty_out_of_circle + penalty_close_turbines + penalty_total_cabos + penalty_sub_too_close
             
         except Exception as e:
             # Se houver erro no cabeamento, penaliza fortemente
@@ -335,20 +523,36 @@ toolbox_phase1.register("evaluate", evaluate_phase1)
 
 # Toolbox Fase 2 (Multi-objective)
 def mate_phase2(ind1, ind2):
-    """Crossover que trata coordenadas e número de grupos separadamente."""
-    # Crossover blend para coordenadas
+    """
+    Crossover que trata coordenadas, número de grupos e posição da subestação separadamente.
+    Estrutura: [32 coords turbinas] + [1 n_grupos] + [2 coords subestação] = 35 variáveis
+    """
     n_coords = IND_SIZE * 2
+    
+    # Crossover blend para coordenadas das turbinas
     tools.cxBlend(ind1[:n_coords], ind2[:n_coords], alpha=0.5)
     
-    # Crossover aritmético para número de grupos (último elemento)
+    # Crossover aritmético para número de grupos (índice n_coords)
     alpha = random.random()
-    temp = alpha * ind1[-1] + (1 - alpha) * ind2[-1]
-    ind2[-1] = alpha * ind2[-1] + (1 - alpha) * ind1[-1]
-    ind1[-1] = temp
+    temp = alpha * ind1[n_coords] + (1 - alpha) * ind2[n_coords]
+    ind2[n_coords] = alpha * ind2[n_coords] + (1 - alpha) * ind1[n_coords]
+    ind1[n_coords] = temp
     
-    # Garante limites
-    ind1[-1] = max(0.0, min(1.0, ind1[-1]))
-    ind2[-1] = max(0.0, min(1.0, ind2[-1]))
+    # Garante limites para número de grupos
+    ind1[n_coords] = max(0.0, min(1.0, ind1[n_coords]))
+    ind2[n_coords] = max(0.0, min(1.0, ind2[n_coords]))
+    
+    # Crossover aritmético para posição da subestação (índices n_coords+1 e n_coords+2)
+    alpha_sub = random.random()
+    # X da subestação
+    temp_x = alpha_sub * ind1[n_coords + 1] + (1 - alpha_sub) * ind2[n_coords + 1]
+    ind2[n_coords + 1] = alpha_sub * ind2[n_coords + 1] + (1 - alpha_sub) * ind1[n_coords + 1]
+    ind1[n_coords + 1] = temp_x
+    
+    # Y da subestação
+    temp_y = alpha_sub * ind1[n_coords + 2] + (1 - alpha_sub) * ind2[n_coords + 2]
+    ind2[n_coords + 2] = alpha_sub * ind2[n_coords + 2] + (1 - alpha_sub) * ind1[n_coords + 2]
+    ind1[n_coords + 2] = temp_y
     
     return ind1, ind2
 
@@ -388,7 +592,7 @@ def optimize_phase1(POP_SIZE, NGEN, CXPB, MUTPB):
     stats.register("max", np.max)
 
     # --- Parameters for Adaptive GA and Early Stopping - EXATOS de wind_farm_GA_16.py ---
-    PATIENCE = 50
+    PATIENCE = 150
     MIN_DELTA = 10.0
     SIGMA_NORMAL = 100
     SIGMA_AGGRESSIVE = 250
@@ -532,7 +736,7 @@ def optimize_phase2(best_layouts_phase1, POP_SIZE, NGEN, CXPB, MUTPB, start_gen_
     
     # Inicializa população: top layouts da Fase 1 + alguns aleatórios
     pop = []
-    for layout in best_layouts_phase1:
+    for i, layout in enumerate(best_layouts_phase1):
         # Converte layout da Fase 1 para formato da Fase 2
         # layout é um IndividualPhase1 (lista de coordenadas)
         # Garantimos que é uma lista plana de 32 elementos (16 turbinas * 2 coordenadas)
@@ -545,23 +749,135 @@ def optimize_phase2(best_layouts_phase1, POP_SIZE, NGEN, CXPB, MUTPB, start_gen_
         coords_array = np.array(coords_list, dtype=float)
         coords = coords_array.reshape((IND_SIZE, 2))
         
-        # Cria indivíduo da Fase 2
-        ind_phase2 = create_individual_phase2_from_coords(coords)
+        # Inicializa posição da subestação como centroide do layout (como k-means)
+        # O centroide é o ponto médio das turbinas, que é uma boa posição inicial
+        centroide = np.mean(coords, axis=0)
+        
+        # Diversifica posição inicial da subestação ao redor do centroide
+        # Isso permite exploração mantendo a subestação próxima ao centro das turbinas
+        mod = len(pop) % 5
+        if mod == 0:
+            # Exatamente no centroide (sem variação)
+            substation_pos = centroide.tolist()
+        elif mod == 1:
+            # Próxima ao centroide (pequena variação)
+            substation_pos = [
+                centroide[0] + random.gauss(0, CIRCLE_RADIUS * 0.2),
+                centroide[1] + random.gauss(0, CIRCLE_RADIUS * 0.2)
+            ]
+        elif mod == 2:
+            # Média distância do centroide (variação moderada)
+            substation_pos = [
+                centroide[0] + random.gauss(0, CIRCLE_RADIUS * 0.4),
+                centroide[1] + random.gauss(0, CIRCLE_RADIUS * 0.4)
+            ]
+        elif mod == 3:
+            # Longe do centroide (variação grande) - exploração
+            substation_pos = [
+                centroide[0] + random.gauss(0, CIRCLE_RADIUS * 0.6),
+                centroide[1] + random.gauss(0, CIRCLE_RADIUS * 0.6)
+            ]
+        else:  # mod == 4
+            # Muito longe do centroide (exploração agressiva)
+            # Usa distribuição circular ao redor do centroide
+            angle = random.uniform(0, 2 * np.pi)
+            radius = random.uniform(CIRCLE_RADIUS * 0.5, CIRCLE_RADIUS * 0.9)
+            substation_pos = [
+                centroide[0] + radius * np.cos(angle),
+                centroide[1] + radius * np.sin(angle)
+            ]
+        
+        # Cria indivíduo da Fase 2 com posição variada da subestação
+        ind_phase2 = create_individual_phase2_from_coords(coords, substation_pos=substation_pos)
         pop.append(ind_phase2)
     
-    # Adiciona indivíduos aleatórios para diversidade
-    n_random = POP_SIZE - len(pop)
-    if n_random > 0:
-        for _ in range(n_random):
-            # Cria indivíduo aleatório a partir das coordenadas iniciais
-            coords_flat = np.array(initial_coordinates).flatten()
-            # Adiciona pequena perturbação aleatória
-            coords_perturbed = [c + random.gauss(0, 50) for c in coords_flat]
-            enforce_circle(coords_perturbed)
-            # Converte para formato 2D e cria indivíduo
-            coords_2d = np.array(coords_perturbed).reshape((IND_SIZE, 2))
-            ind_phase2 = create_individual_phase2_from_coords(coords_2d)
+    # Completa população usando os melhores layouts da Fase 1 (não coordenadas iniciais!)
+    # Se precisar de mais indivíduos, usa os melhores layouts com perturbações
+    n_remaining = POP_SIZE - len(pop)
+    if n_remaining > 0:
+        # Repete os melhores layouts da Fase 1 com perturbações para diversidade
+        # Isso garante que todos os indivíduos partam de layouts bons, não ruins
+        for i in range(n_remaining):
+            # Seleciona um layout da Fase 1 (cicla pelos melhores)
+            layout_idx = i % len(best_layouts_phase1)
+            layout = best_layouts_phase1[layout_idx]
+            
+            # Converte para coordenadas
+            coords_list = list(layout)
+            coords_array = np.array(coords_list, dtype=float)
+            coords = coords_array.reshape((IND_SIZE, 2))
+            
+            # Adiciona perturbação maior para diversidade, mas mantém base nos melhores layouts
+            coords_perturbed = coords.copy()
+            # Perturbação variável: entre 150-300m para explorar mais o espaço
+            # Ainda mantém proximidade aos melhores layouts, mas permite mais exploração
+            perturbation_sigma = random.uniform(150, 300)  # Varia entre 150-300m
+            for j in range(len(coords_perturbed)):
+                coords_perturbed[j, 0] += random.gauss(0, perturbation_sigma)
+                coords_perturbed[j, 1] += random.gauss(0, perturbation_sigma)
+            
+            # Garante que está dentro do círculo
+            for j in range(len(coords_perturbed)):
+                x, y = coords_perturbed[j, 0], coords_perturbed[j, 1]
+                dist = np.sqrt(x**2 + y**2)
+                if dist > CIRCLE_RADIUS:
+                    angle = np.arctan2(y, x)
+                    coords_perturbed[j, 0] = CIRCLE_RADIUS * np.cos(angle)
+                    coords_perturbed[j, 1] = CIRCLE_RADIUS * np.sin(angle)
+            
+            # Calcula centroide das turbinas perturbadas
+            centroide_perturbed = np.mean(coords_perturbed, axis=0)
+            
+            # Posição da subestação ao redor do centroide (variação para exploração)
+            substation_pos_perturbed = [
+                centroide_perturbed[0] + random.gauss(0, CIRCLE_RADIUS * 0.4),
+                centroide_perturbed[1] + random.gauss(0, CIRCLE_RADIUS * 0.4)
+            ]
+            
+            ind_phase2 = create_individual_phase2_from_coords(coords_perturbed, substation_pos=substation_pos_perturbed)
             pop.append(ind_phase2)
+    
+    # Avalia população inicial
+    print(f"\nAvaliando população inicial da Fase 2 ({len(pop)} indivíduos)...")
+    invalid_ind = [ind for ind in pop if not ind.fitness.valid]
+    if len(invalid_ind) > 0:
+        fitnesses = toolbox_phase2.map(toolbox_phase2.evaluate, invalid_ind)
+        for ind, fit in zip(invalid_ind, fitnesses):
+            ind.fitness.values = fit
+    
+    # Verifica se há indivíduos válidos (fitness > 0)
+    valid_pop = [ind for ind in pop if ind.fitness.valid and ind.fitness.values[0] > 0]
+    if len(valid_pop) == 0:
+        print("\nERRO: Todos os indivíduos da população inicial foram rejeitados!")
+        print("Isso pode acontecer se todas as soluções têm cruzamentos ou múltiplas conexões.")
+        print("Tentando criar população alternativa com layouts mais simples...")
+        
+        # Tenta criar população alternativa com layouts mais simples (menos grupos)
+        pop = []
+        for i, layout in enumerate(best_layouts_phase1[:min(10, len(best_layouts_phase1))]):
+            coords_list = list(layout)
+            if len(coords_list) != IND_SIZE * 2:
+                continue
+            coords_array = np.array(coords_list, dtype=float)
+            coords = coords_array.reshape((IND_SIZE, 2))
+            centroide = np.mean(coords, axis=0)
+            substation_pos = centroide.tolist()  # Subestação exatamente no centroide
+            ind_phase2 = create_individual_phase2_from_coords(coords, substation_pos=substation_pos)
+            pop.append(ind_phase2)
+        
+        # Avalia novamente
+        invalid_ind = [ind for ind in pop if not ind.fitness.valid]
+        if len(invalid_ind) > 0:
+            fitnesses = toolbox_phase2.map(toolbox_phase2.evaluate, invalid_ind)
+            for ind, fit in zip(invalid_ind, fitnesses):
+                ind.fitness.values = fit
+        
+        valid_pop = [ind for ind in pop if ind.fitness.valid and ind.fitness.values[0] > 0]
+        if len(valid_pop) == 0:
+            raise ValueError("Não foi possível criar população inicial válida. Verifique as penalidades de cruzamento.")
+        
+        print(f"População alternativa criada: {len(valid_pop)} indivíduos válidos de {len(pop)} totais")
+        pop = valid_pop
     
     hof = tools.ParetoFront()
     
@@ -573,13 +889,58 @@ def optimize_phase2(best_layouts_phase1, POP_SIZE, NGEN, CXPB, MUTPB, start_gen_
     stats.register("max", np.max)
     
     # Parâmetros para detecção de estagnação (similar à Fase 1)
-    PATIENCE = 50
+    PATIENCE = 100
     MIN_DELTA_AEP = 10.0  # MWh - mudança mínima em AEP
     MIN_DELTA_COST = 100.0  # USD - mudança mínima em custo (ajustado para detectar melhorias pequenas)
     
     stagnation_counter = 0
     last_best_aep = 0.0
     last_best_cost = float('inf')
+    
+    def select_best_tradeoff_solution(hof_valid):
+        """
+        Seleciona a melhor solução usando o método do knee point (ponto de joelho).
+        O knee point é a solução que minimiza a distância normalizada ao ponto ideal (máximo AEP, mínimo custo).
+        Isso garante que selecionamos uma solução com bom trade-off, não apenas a de maior AEP.
+        """
+        if len(hof_valid) == 0:
+            return None
+        
+        if len(hof_valid) == 1:
+            return hof_valid[0]
+        
+        # Extrai AEP e custo de todas as soluções
+        aeps = np.array([ind.fitness.values[0] for ind in hof_valid])
+        costs = np.array([ind.fitness.values[1] for ind in hof_valid])
+        
+        # Normaliza AEP e custo para [0, 1]
+        # AEP: quanto maior melhor, então normaliza como (aep - min) / (max - min)
+        # Custo: quanto menor melhor, então normaliza como (max - cost) / (max - min)
+        aep_min, aep_max = aeps.min(), aeps.max()
+        cost_min, cost_max = costs.min(), costs.max()
+        
+        if aep_max == aep_min:
+            aep_norm = np.ones_like(aeps)
+        else:
+            aep_norm = (aeps - aep_min) / (aep_max - aep_min)
+        
+        if cost_max == cost_min:
+            cost_norm = np.ones_like(costs)
+        else:
+            cost_norm = (cost_max - costs) / (cost_max - cost_min)  # Invertido: menor custo = maior valor
+        
+        # Ponto ideal: (1, 1) = máximo AEP normalizado, mínimo custo normalizado
+        # Calcula distância de cada ponto ao ideal
+        ideal_point = np.array([1.0, 1.0])
+        distances = []
+        for i in range(len(hof_valid)):
+            point = np.array([aep_norm[i], cost_norm[i]])
+            dist = np.linalg.norm(ideal_point - point)
+            distances.append(dist)
+        
+        # Retorna a solução com menor distância ao ideal (knee point)
+        knee_idx = np.argmin(distances)
+        return hof_valid[knee_idx]
     
     # Avalia população inicial
     invalid_ind = [ind for ind in pop if not ind.fitness.valid]
@@ -597,29 +958,30 @@ def optimize_phase2(best_layouts_phase1, POP_SIZE, NGEN, CXPB, MUTPB, start_gen_
             last_best_aep = max(ind.fitness.values[0] for ind in hof_valid)
             last_best_cost = min(ind.fitness.values[1] for ind in hof_valid)
             
-            # Salva melhor indivíduo da geração inicial (gen 0)
-            best_ind_gen0 = max(hof_valid, key=lambda x: x.fitness.values[0])
-            n_coords = IND_SIZE * 2
-            coords_flat = best_ind_gen0[:n_coords]
-            coords = np.array(coords_flat).reshape((IND_SIZE, 2))
+            # Salva solução com melhor trade-off (gen 0) usando nova diretiva
+            best_ind0 = select_best_tradeoff_solution(hof_valid)
             
-            # Numeração continua da Fase 1
             gen_number = start_gen_number + 1  # +1 porque gen 0 da Fase 2 é após última gen da Fase 1
-            # Extrai número de grupos
-            n_grupos_normalizado = best_ind_gen0[-1]
-            n_grupos_float = MIN_GRUPOS + n_grupos_normalizado * (MAX_GRUPOS - MIN_GRUPOS)
-            n_grupos = int(np.round(n_grupos_float))
-            n_grupos = max(MIN_GRUPOS, min(MAX_GRUPOS, n_grupos))
+            n_coords = IND_SIZE * 2
+            coords_flat0 = best_ind0[:n_coords]
+            coords0 = np.array(coords_flat0).reshape((IND_SIZE, 2))
+            n_grupos_normalizado0 = best_ind0[n_coords]
+            n_grupos_float0 = MIN_GRUPOS + n_grupos_normalizado0 * (MAX_GRUPOS - MIN_GRUPOS)
+            n_grupos0 = int(np.round(n_grupos_float0))
+            n_grupos0 = max(MIN_GRUPOS, min(MAX_GRUPOS, n_grupos0))
+            substation_pos0 = np.array([best_ind0[n_coords + 1], best_ind0[n_coords + 2]])
             
-            evolution_file = os.path.join(evolution_dir, f"gen_{gen_number:04d}_best.txt")
-            with open(evolution_file, 'w') as f:
-                x_str = ", ".join([f"{val:.12f}" for val in coords[:, 0]])
-                y_str = ", ".join([f"{val:.12f}" for val in coords[:, 1]])
+            evolution_file0 = os.path.join(evolution_dir, f"gen_{gen_number:04d}_best.txt")
+            with open(evolution_file0, 'w') as f:
+                x_str = ", ".join([f"{val:.12f}" for val in coords0[:, 0]])
+                y_str = ", ".join([f"{val:.12f}" for val in coords0[:, 1]])
                 f.write(f"xc: [{x_str}]\n")
                 f.write(f"yc: [{y_str}]\n")
-                f.write(f"aep: {best_ind_gen0.fitness.values[0]:.2f}\n")
-                f.write(f"cost: {best_ind_gen0.fitness.values[1]:.2f}\n")
-                f.write(f"n_grupos: {n_grupos}\n")
+                f.write(f"aep: {best_ind0.fitness.values[0]:.2f}\n")
+                f.write(f"cost: {best_ind0.fitness.values[1]:.2f}\n")
+                f.write(f"n_grupos: {n_grupos0}\n")
+                f.write(f"substation_x: {substation_pos0[0]:.12f}\n")
+                f.write(f"substation_y: {substation_pos0[1]:.12f}\n")
                 f.write(f"phase: 2\n")
     
     for gen in range(1, NGEN + 1):
@@ -648,8 +1010,46 @@ def optimize_phase2(best_layouts_phase1, POP_SIZE, NGEN, CXPB, MUTPB, start_gen_
         hof.clear()
         hof.update(hof_valid)
         
-        record = stats.compile(pop)
-        n_valid = sum(1 for ind in pop if ind.fitness.values[0] > 0)
+        # Verifica se há indivíduos válidos antes de compilar estatísticas
+        valid_pop = [ind for ind in pop if ind.fitness.valid and ind.fitness.values[0] > 0]
+        n_valid = len(valid_pop)
+        
+        if n_valid == 0:
+            print(f"\nAVISO: Gen {gen}: Nenhum indivíduo válido na população!")
+            print("Todos os indivíduos foram rejeitados. Tentando recuperar população...")
+            # Tenta usar indivíduos do hall of fame se disponível
+            if len(hof_valid) > 0:
+                pop = hof_valid[:POP_SIZE]
+                # Completa com novos indivíduos se necessário
+                while len(pop) < POP_SIZE:
+                    # Cria novo indivíduo baseado nos melhores
+                    if len(best_layouts_phase1) > 0:
+                        base_layout = random.choice(best_layouts_phase1)
+                        coords_list = list(base_layout)
+                        if len(coords_list) == IND_SIZE * 2:
+                            coords_array = np.array(coords_list, dtype=float)
+                            coords = coords_array.reshape((IND_SIZE, 2))
+                            centroide = np.mean(coords, axis=0)
+                            substation_pos = [
+                                centroide[0] + random.gauss(0, CIRCLE_RADIUS * 0.3),
+                                centroide[1] + random.gauss(0, CIRCLE_RADIUS * 0.3)
+                            ]
+                            ind_phase2 = create_individual_phase2_from_coords(coords, substation_pos=substation_pos)
+                            pop.append(ind_phase2)
+                # Reavalia
+                invalid_ind = [ind for ind in pop if not ind.fitness.valid]
+                if len(invalid_ind) > 0:
+                    fitnesses = toolbox_phase2.map(toolbox_phase2.evaluate, invalid_ind)
+                    for ind, fit in zip(invalid_ind, fitnesses):
+                        ind.fitness.values = fit
+                valid_pop = [ind for ind in pop if ind.fitness.valid and ind.fitness.values[0] > 0]
+                n_valid = len(valid_pop)
+        
+        if n_valid == 0:
+            raise ValueError(f"Gen {gen}: Não foi possível recuperar população válida. Parando otimização.")
+        
+        # Compila estatísticas apenas com indivíduos válidos
+        record = stats.compile(valid_pop)
         
         aep_max_mwh = record['aep']['max']
         cost_min_usd = record['cost']['min']
@@ -685,30 +1085,28 @@ def optimize_phase2(best_layouts_phase1, POP_SIZE, NGEN, CXPB, MUTPB, start_gen_
         
         # Calcula número médio de grupos
         if n_valid > 0:
+            n_coords = IND_SIZE * 2  # Índice onde começa n_grupos
             grupos_list = [
-                int(np.round(MIN_GRUPOS + ind[-1] * (MAX_GRUPOS - MIN_GRUPOS))) 
+                int(np.round(MIN_GRUPOS + ind[n_coords] * (MAX_GRUPOS - MIN_GRUPOS))) 
                 for ind in pop if ind.fitness.values[0] > 0
             ]
             n_grupos_medio = int(np.round(np.mean(grupos_list))) if grupos_list else 0
         else:
             n_grupos_medio = 0
         
-        # Salva melhor indivíduo da geração (maior AEP)
+        # Salva solução com melhor trade-off usando nova diretiva
         if len(hof_valid) > 0:
-            best_ind_gen = max(hof_valid, key=lambda x: x.fitness.values[0])
-            n_coords = IND_SIZE * 2
-            coords_flat = best_ind_gen[:n_coords]
-            coords = np.array(coords_flat).reshape((IND_SIZE, 2))
+            best_ind = select_best_tradeoff_solution(hof_valid)
             
-            # Salva coordenadas do melhor indivíduo desta geração
-            # Numeração continua da Fase 1
             gen_number = start_gen_number + gen
-            
-            # Extrai número de grupos
-            n_grupos_normalizado = best_ind_gen[-1]
+            n_coords = IND_SIZE * 2
+            coords_flat = best_ind[:n_coords]
+            coords = np.array(coords_flat).reshape((IND_SIZE, 2))
+            n_grupos_normalizado = best_ind[n_coords]
             n_grupos_float = MIN_GRUPOS + n_grupos_normalizado * (MAX_GRUPOS - MIN_GRUPOS)
             n_grupos = int(np.round(n_grupos_float))
             n_grupos = max(MIN_GRUPOS, min(MAX_GRUPOS, n_grupos))
+            substation_pos = np.array([best_ind[n_coords + 1], best_ind[n_coords + 2]])
             
             evolution_file = os.path.join(evolution_dir, f"gen_{gen_number:04d}_best.txt")
             with open(evolution_file, 'w') as f:
@@ -716,9 +1114,11 @@ def optimize_phase2(best_layouts_phase1, POP_SIZE, NGEN, CXPB, MUTPB, start_gen_
                 y_str = ", ".join([f"{val:.12f}" for val in coords[:, 1]])
                 f.write(f"xc: [{x_str}]\n")
                 f.write(f"yc: [{y_str}]\n")
-                f.write(f"aep: {best_ind_gen.fitness.values[0]:.2f}\n")
-                f.write(f"cost: {best_ind_gen.fitness.values[1]:.2f}\n")
+                f.write(f"aep: {best_ind.fitness.values[0]:.2f}\n")
+                f.write(f"cost: {best_ind.fitness.values[1]:.2f}\n")
                 f.write(f"n_grupos: {n_grupos}\n")
+                f.write(f"substation_x: {substation_pos[0]:.12f}\n")
+                f.write(f"substation_y: {substation_pos[1]:.12f}\n")
                 f.write(f"phase: 2\n")
         
         if gen % 1 == 0 or gen == NGEN:
@@ -748,19 +1148,21 @@ def save_results(hof_final):
     for i, individual in enumerate(hof_valid):
         aep_liq, cost = individual.fitness.values
         
-        # Extrai coordenadas e número de grupos
+        # Extrai coordenadas, número de grupos e posição da subestação
         n_coords = IND_SIZE * 2
         coords_flat = individual[:n_coords]
-        n_grupos_normalizado = individual[-1]
+        n_grupos_normalizado = individual[n_coords]
         n_grupos_float = MIN_GRUPOS + n_grupos_normalizado * (MAX_GRUPOS - MIN_GRUPOS)
         n_grupos = int(np.round(n_grupos_float))
         n_grupos = max(MIN_GRUPOS, min(MAX_GRUPOS, n_grupos))
+        substation_pos = np.array([individual[n_coords + 1], individual[n_coords + 2]])
         
         coords = np.array(coords_flat).reshape((IND_SIZE, 2))
         
-        # Recalcula perdas para salvar
-        distancias_ao_continente = np.linalg.norm(coords - SUBSTATION_CONTINENT, axis=1)
-        ponto_de_coleta_idx = np.argmin(distancias_ao_continente)
+        # Recalcula perdas para salvar usando posição da subestação do genoma
+        # Encontra a turbina mais próxima da subestação para usar como ponto de coleta
+        distancias_subestacao = np.linalg.norm(coords - substation_pos, axis=1)
+        ponto_de_coleta_idx = np.argmin(distancias_subestacao)
         
         try:
             _, resultados_cabeamento = cabling_v3.analisar_layout_completo(
@@ -777,6 +1179,8 @@ def save_results(hof_final):
             f.write(f"xc: [{x_str}]\n")
             f.write(f"yc: [{y_str}]\n")
             f.write(f"n_grupos: {n_grupos}\n")
+            f.write(f"substation_x: {substation_pos[0]:.12f}\n")
+            f.write(f"substation_y: {substation_pos[1]:.12f}\n")
         
         results.append({
             'Solution': i+1, 

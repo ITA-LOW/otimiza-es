@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 # Adiciona o diretório pai ao path para encontrar o módulo multi_objetivo
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '.')))
 
-from multi_objetivo.cabling import analisar_layout_completo, plotar_cabeamento
+from multi_objetivo.cabling_v1 import analisar_layout_completo, plotar_cabeamento
 
 # Create output directory if it doesn't exist
 output_dir = 'output/multi_objective_sub'

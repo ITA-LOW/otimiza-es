@@ -22,7 +22,7 @@ except ImportError:
 
 # Importações dos módulos do projeto
 from config.iea37_aepcalc import calcAEP, getTurbLocYAML, getWindRoseYAML, getTurbAtrbtYAML
-from multi_objetivo.cabling import analisar_layout_completo
+from multi_objetivo.cabling_v1 import analisar_layout_completo
 
 # --- 1. Configurações Globais (do script de otimização) ---
 IND_SIZE = 16  # Número de turbinas
