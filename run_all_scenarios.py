@@ -59,11 +59,11 @@ SCENARIOS = {
         'INDPB_P1': 0.40,
         'PATIENCE_P1': 150,
         'POP_SIZE_P2': 300,
-        'NGEN_P2': 500,
+        'NGEN_P2': 1500,
         'CXPB_P2': 0.95,
         'MUTPB_P2': 0.70,
         'INDPB_P2': 0.40,
-        'PATIENCE_P2': 250,
+        'PATIENCE_P2': 350,
     },
     36: {
         'IND_SIZE': 36,
@@ -79,11 +79,11 @@ SCENARIOS = {
         'INDPB_P1': 0.10,
         'PATIENCE_P1': 150,
         'POP_SIZE_P2': 300,
-        'NGEN_P2': 500,
+        'NGEN_P2': 1500,
         'CXPB_P2': 1.00,
         'MUTPB_P2': 0.35,
         'INDPB_P2': 0.10,
-        'PATIENCE_P2': 250,
+        'PATIENCE_P2': 350,
     },
     64: {
         'IND_SIZE': 64,
@@ -99,11 +99,11 @@ SCENARIOS = {
         'INDPB_P1': 0.20,
         'PATIENCE_P1': 150,
         'POP_SIZE_P2': 300,
-        'NGEN_P2': 500,
+        'NGEN_P2': 1500,
         'CXPB_P2': 0.80,
         'MUTPB_P2': 0.20,
         'INDPB_P2': 0.20,
-        'PATIENCE_P2': 250,
+        'PATIENCE_P2': 350,
     }
 }
 
