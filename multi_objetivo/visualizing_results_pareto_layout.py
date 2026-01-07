@@ -1224,14 +1224,6 @@ def plot_metrics_evolution(project_root):
     
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 10))
     
-    # Gráfico de AEP (Fase 1 e Fase 2)
-    if len(gens_p1) > 0:
-        ax1.plot(gens_p1, aeps_p1, 'b-o', linewidth=2, markersize=4, 
-                label='Phase 1: Gross AEP', alpha=0.7)
-    if len(gens_p2) > 0:
-        ax1.plot(gens_p2, aeps_p2, 'g-s', linewidth=2, markersize=4, 
-                label='Phase 2: Net AEP', alpha=0.7)
-    
     # Calcula limites do eixo X para ambos os gráficos
     all_gens = (gens_p1 if len(gens_p1) > 0 else []) + (gens_p2 if len(gens_p2) > 0 else [])
     if len(all_gens) > 0:
@@ -1241,21 +1233,98 @@ def plot_metrics_evolution(project_root):
         x_min = 0
         x_max = 1000
     
+    # Calcula limites de cada fase para o fundo colorido
+    phase1_start = x_min
+    phase1_end = max(gens_p1) if len(gens_p1) > 0 else x_min
+    phase2_start = min(gens_p2) if len(gens_p2) > 0 else phase1_end
+    phase2_end = max(gens_p2) if len(gens_p2) > 0 else x_max
+    
+    # Calcula limites do eixo Y para posicionar a marca d'água
+    if len(gens_p1) > 0 or len(gens_p2) > 0:
+        all_aeps = (aeps_p1 if len(aeps_p1) > 0 else []) + (aeps_p2 if len(aeps_p2) > 0 else [])
+        aep_y_min = min(all_aeps) if len(all_aeps) > 0 else 0
+        aep_y_max = max(all_aeps) if len(all_aeps) > 0 else 500
+    else:
+        aep_y_min = 0
+        aep_y_max = 500
+    
+    if len(gens_cost) > 0:
+        costs_valid = [c for c in costs_all if not np.isnan(c)]
+        cost_y_min = min(costs_valid) if len(costs_valid) > 0 else 0
+        cost_y_max = max(costs_valid) if len(costs_valid) > 0 else 2000
+    else:
+        cost_y_min = 0
+        cost_y_max = 2000
+    
+    # Adiciona fundo colorido para Fase 1 (azul claro)
+    if phase1_end > phase1_start:
+        ax1.axvspan(phase1_start, phase1_end, alpha=0.15, color='blue', zorder=0)
+        ax2.axvspan(phase1_start, phase1_end, alpha=0.15, color='blue', zorder=0)
+    
+    # Adiciona fundo colorido para Fase 2 (verde claro)
+    if phase2_end > phase2_start:
+        ax1.axvspan(phase2_start, phase2_end, alpha=0.15, color='green', zorder=0)
+        ax2.axvspan(phase2_start, phase2_end, alpha=0.15, color='green', zorder=0)
+    
+    # Adiciona marca d'água "Phase 1\nMono-objective" no gráfico de AEP
+    if phase1_end > phase1_start:
+        phase1_center_x = (phase1_start + phase1_end) / 2.0
+        phase1_center_y = (aep_y_min + aep_y_max) / 2.0
+        ax1.text(phase1_center_x, phase1_center_y, 'Phase 1\nMono-objective',
+                ha='center', va='center', fontsize=24, fontweight='bold',
+                alpha=0.08, rotation=0, zorder=1,
+                bbox=dict(boxstyle='round', facecolor='white', edgecolor='none', alpha=0.3))
+    
+    # Adiciona marca d'água "Phase 2\nMulti-objective" no gráfico de AEP
+    if phase2_end > phase2_start:
+        phase2_center_x = (phase2_start + phase2_end) / 2.0
+        phase2_center_y = (aep_y_min + aep_y_max) / 2.0
+        ax1.text(phase2_center_x, phase2_center_y, 'Phase 2\nMulti-objective',
+                ha='center', va='center', fontsize=24, fontweight='bold',
+                alpha=0.08, rotation=0, zorder=1,
+                bbox=dict(boxstyle='round', facecolor='white', edgecolor='none', alpha=0.3))
+    
+    # Adiciona marca d'água "Phase 1\nMono-objective" no gráfico de Custo
+    if phase1_end > phase1_start:
+        phase1_center_x = (phase1_start + phase1_end) / 2.0
+        phase1_center_y = (cost_y_min + cost_y_max) / 2.0
+        ax2.text(phase1_center_x, phase1_center_y, 'Phase 1\nMono-objective',
+                ha='center', va='center', fontsize=24, fontweight='bold',
+                alpha=0.08, rotation=0, zorder=1,
+                bbox=dict(boxstyle='round', facecolor='white', edgecolor='none', alpha=0.3))
+    
+    # Adiciona marca d'água "Phase 2\nMulti-objective" no gráfico de Custo
+    if phase2_end > phase2_start:
+        phase2_center_x = (phase2_start + phase2_end) / 2.0
+        phase2_center_y = (cost_y_min + cost_y_max) / 2.0
+        ax2.text(phase2_center_x, phase2_center_y, 'Phase 2\nMulti-objective',
+                ha='center', va='center', fontsize=24, fontweight='bold',
+                alpha=0.08, rotation=0, zorder=1,
+                bbox=dict(boxstyle='round', facecolor='white', edgecolor='none', alpha=0.3))
+    
+    # Gráfico de AEP (Fase 1 e Fase 2)
+    if len(gens_p1) > 0:
+        ax1.plot(gens_p1, aeps_p1, 'b-o', linewidth=2, markersize=4, 
+                label='Phase 1: Gross AEP', alpha=0.7, zorder=2)
+    if len(gens_p2) > 0:
+        ax1.plot(gens_p2, aeps_p2, 'g-s', linewidth=2, markersize=4, 
+                label='Phase 2: Net AEP', alpha=0.7, zorder=2)
+    
     ax1.set_xlabel('Generation', fontsize=12, fontweight='bold')
     ax1.set_ylabel('AEP (GWh)', fontsize=12, fontweight='bold')
     ax1.set_title('AEP Evolution Across Generations', fontsize=14, fontweight='bold')
-    ax1.grid(True, linestyle='--', alpha=0.3)
+    ax1.grid(True, linestyle='--', alpha=0.3, zorder=1)
     ax1.legend(loc='best', fontsize=10)
     ax1.set_xlim(left=x_min, right=x_max)  # Força começar em 0
     
     # Gráfico de Custo (começa na gen 0 junto com Fase 1, mas só mostra valores na Fase 2)
     if len(gens_cost) > 0:
         ax2.plot(gens_cost, costs_all, 'r-^', linewidth=2, markersize=4, 
-                label='Phase 2: Cabling Cost', alpha=0.7)
+                label='Phase 2: Cabling Cost', alpha=0.7, zorder=2)
         ax2.set_xlabel('Generation', fontsize=12, fontweight='bold')
         ax2.set_ylabel('Cost (Thousands USD)', fontsize=12, fontweight='bold')
         ax2.set_title('Cabling Cost Evolution (Phase 2)', fontsize=14, fontweight='bold')
-        ax2.grid(True, linestyle='--', alpha=0.3)
+        ax2.grid(True, linestyle='--', alpha=0.3, zorder=1)
         ax2.legend(loc='best', fontsize=10)
         ax2.set_xlim(left=x_min, right=x_max)  # Força começar em 0 e alinha com gráfico de cima
     else:
