@@ -45,23 +45,99 @@ creator.create("FitnessMax", base.Fitness, weights=(1.0,))
 creator.create("IndividualPhase1", list, fitness=creator.FitnessMax)
 
 # Fase 2: Multi-objective (AEP líquido + Custo)
-creator.create("FitnessMulti", base.Fitness, weights=(100.0, -1.0))  # AEP tem peso 100x maior!
+creator.create("FitnessMulti", base.Fitness, weights=(1.0, -1.0))  # AEP tem peso 100x maior!
 creator.create("IndividualPhase2", list, fitness=creator.FitnessMulti)
 
 # Cria toolboxes separadas para cada fase
 toolbox_phase1 = base.Toolbox()
 toolbox_phase2 = base.Toolbox()
 
-# Parâmetros do Parque Eólico e da Otimização
+# =============================================================================
+# PARÂMETROS DO PARQUE EÓLICO
+# =============================================================================
 IND_SIZE = 16
-CIRCLE_RADIUS = 1300
+CIRCLE_RADIUS = 5000
 N_DIAMETERS = 260
 MIN_SUB_TURB_DIST = 50.0  # Distância mínima entre subestação e turbinas (metros)
 
 # Limites para número de grupos de cabeamento (será otimizado pelo AG na Fase 2)
 MIN_GRUPOS = 2   # Mínimo: 2 grupos
-MAX_GRUPOS = 16  # Máximo: 16 grupos (uma turbina por grupo)
-N_GRUPOS_INICIAL = 4  # Valor inicial
+MAX_GRUPOS = 64  # Máximo: 16 grupos (uma turbina por grupo)
+N_GRUPOS_INICIAL = MIN_GRUPOS  # Valor inicial
+
+# =============================================================================
+# PARÂMETROS DO ALGORITMO GENÉTICO - FASE 1
+# =============================================================================
+POP_SIZE_P1 = 300
+NGEN_P1 = 500
+CXPB_P1 = 0.95 # Probabilidade de crossover
+MUTPB_P1 = 0.95  # Probabilidade de mutação
+INDPB_P1 = 0.95  # Probabilidade de mutar cada gene individualmente
+
+# Parâmetros de mutação Fase 1
+MU_P1 = 0  # Média da distribuição gaussiana para mutação
+SIGMA_P1 = 100  # Desvio padrão da distribuição gaussiana para mutação
+
+# Parâmetros de crossover Fase 1
+CROSSOVER_ALPHA_P1 = 0.5  # Parâmetro alpha do crossover blend
+
+# Parâmetros de seleção Fase 1
+TOURNSIZE_P1 = 5  # Tamanho do torneio para seleção
+
+# Parâmetros de estagnação e parada precoce Fase 1
+PATIENCE_P1 = 150  # Número de gerações sem melhoria antes de parar
+MIN_DELTA_P1 = 10.0  # Melhoria mínima (MWh) para resetar contador de estagnação
+SIGMA_NORMAL_P1 = 100  # Sigma normal para mutação
+SIGMA_AGGRESSIVE_P1 = 250  # Sigma agressivo quando detecta estagnação
+AGGRESSIVE_DURATION_P1 = 15  # Duração (gerações) da fase de mutação agressiva
+
+# Parâmetros do Hall of Fame Fase 1
+HOF_SIZE_P1 = 50  # Número de melhores indivíduos mantidos
+N_TOP_LAYOUTS = 30  # Número de melhores layouts da Fase 1 usados na Fase 2
+
+# =============================================================================
+# PARÂMETROS DO ALGORITMO GENÉTICO - FASE 2
+# =============================================================================
+POP_SIZE_P2 = 300
+NGEN_P2 = 500
+CXPB_P2 = 0.95  # Probabilidade de crossover
+MUTPB_P2 = 0.7  # Probabilidade de mutação
+INDPB_P2 = 0.4  # Probabilidade de mutar cada gene individualmente
+
+# Parâmetros de mutação Fase 2
+MU_P2 = 0  # Média da distribuição gaussiana para mutação
+SIGMA_P2 = 100  # Desvio padrão da distribuição gaussiana para mutação (turbinas)
+SIGMA_SUB_MULTIPLIER = 5  # Multiplicador do sigma para mutação da subestação
+SIGMA_SUB_MIN = 200.0  # Sigma mínimo para mutação da subestação (metros)
+
+# Probabilidades de mutação específicas Fase 2
+PROB_MUTATE_GROUPS_P2 = 0.3  # Probabilidade de mutar número de grupos (30%)
+PROB_MUTATE_SUBSTATION_P2 = 0.9  # Probabilidade de mutar posição da subestação (90%)
+PROB_AGGRESSIVE_SUB_MUTATION = 0.25  # Probabilidade de mutação agressiva da subestação (25%)
+PROB_EXTREME_SUB_MUTATION = 0.1  # Probabilidade de mutação extrema da subestação (10%)
+
+# Fatores de mutação agressiva/extrema da subestação
+AGGRESSIVE_SUB_RADIUS_FACTOR = 0.7  # Fator do raio para mutação agressiva (70% do CIRCLE_RADIUS)
+EXTREME_SUB_RADIUS_FACTOR = 1.0  # Fator do raio para mutação extrema (100% do CIRCLE_RADIUS)
+
+# Parâmetros de crossover Fase 2
+CROSSOVER_ALPHA_P2 = 0.5  # Parâmetro alpha do crossover blend para turbinas
+
+# Parâmetros de estagnação e parada precoce Fase 2
+PATIENCE_P2 = 100  # Número de gerações sem melhoria antes de parar
+MIN_DELTA_AEP_P2 = 10.0  # Melhoria mínima em AEP (MWh) para resetar contador
+MIN_DELTA_COST_P2 = 100.0  # Melhoria mínima em custo (USD) para resetar contador
+
+# Parâmetros de inicialização da população Fase 2
+PERTURBATION_SIGMA_MIN = 150  # Sigma mínimo para perturbação de layouts da Fase 1 (metros)
+PERTURBATION_SIGMA_MAX = 300  # Sigma máximo para perturbação de layouts da Fase 1 (metros)
+
+# Parâmetros de detecção de sobreposição de cabos
+MIN_CABLE_DISTANCE = 100.0  # Distância mínima permitida entre segmentos de cabos (metros)
+MIN_ANGLE_SUBSTATION = 15  # Ângulo mínimo (graus) entre cabos chegando na subestação (menor = muito próximo)
+PENALTY_CROSSING = 1e3  # Penalidade por cruzamento de cabos
+PENALTY_MULTIPLE_CONNECTIONS = 1e9  # Penalidade por múltiplas conexões na mesma turbina
+PENALTY_SMALL_ANGLE_SUBSTATION = 1e7  # Penalidade por ângulo muito fechado na subestação
 
 # =============================================================================
 # PRÉ-CARREGAMENTO DE DADOS
@@ -69,7 +145,7 @@ N_GRUPOS_INICIAL = 4  # Valor inicial
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 config_dir = "config"
-main_yaml_path = os.path.join(BASE_DIR, config_dir, "iea37-ex16.yaml")
+main_yaml_path = os.path.join(BASE_DIR, config_dir, "iea37-ex64.yaml")
 initial_coordinates, fname_turb, fname_wr = getTurbLocYAML(main_yaml_path)
 
 full_path_wr = os.path.join(BASE_DIR, config_dir, "iea37-windrose.yaml")
@@ -105,6 +181,16 @@ def enforce_circle(individual):
             distance = CIRCLE_RADIUS
             individual[2*i] = distance * np.cos(angle)
             individual[2*i + 1] = distance * np.sin(angle)
+
+def enforce_substation_circle(substation_pos):
+    """Garante que a subestação fique dentro do círculo de restrição."""
+    x, y = substation_pos[0], substation_pos[1]
+    dist = np.sqrt(x**2 + y**2)
+    if dist > CIRCLE_RADIUS:
+        angle = np.arctan2(y, x)
+        substation_pos[0] = CIRCLE_RADIUS * np.cos(angle)
+        substation_pos[1] = CIRCLE_RADIUS * np.sin(angle)
+    return substation_pos
 
 def mutate_phase1(individual, mu, sigma, indpb):
     """Mutação - EXATA de wind_farm_GA_16.py (cria novo indivíduo)"""
@@ -149,6 +235,9 @@ def create_individual_phase2_from_coords(coords, substation_pos=None):
             radius * np.sin(angle)
         ]
     
+    # Garante que a subestação inicial também fique dentro do círculo
+    substation_pos = enforce_substation_circle(np.array(substation_pos)).tolist()
+    
     return creator.IndividualPhase2(coords_flat + [n_grupos_normalizado] + list(substation_pos))
 
 # Não registramos individual diretamente pois precisamos passar coords dinamicamente
@@ -168,33 +257,39 @@ def mutate_phase2(individual, mu, sigma, indpb):
             individual_arr[i] += random.gauss(mu, sigma)
         
         # Muta número de grupos (índice n_coords)
-        if random.random() < 0.3:  # 30% de chance de mutar número de grupos
+        if random.random() < PROB_MUTATE_GROUPS_P2:
             individual_arr[n_coords] += random.gauss(0, 0.1)
             individual_arr[n_coords] = max(0.0, min(1.0, individual_arr[n_coords]))
         
         # Muta posição da subestação (índices n_coords+1 e n_coords+2)
         # MUTAÇÃO INDEPENDENTE: sempre tenta mutar a subestação, independente da mutação das turbinas
         # Isso garante exploração contínua do espaço de busca da subestação
-        if random.random() < 0.9:  # 90% de chance de mutar posição da subestação
+        if random.random() < PROB_MUTATE_SUBSTATION_P2:
             # Mutação mais ampla: usa sigma maior e permite exploração em área maior
-            mutation_sigma_sub = max(sigma * 5, 200.0)  # Aumentado para 200m mínimo
+            mutation_sigma_sub = max(sigma * SIGMA_SUB_MULTIPLIER, SIGMA_SUB_MIN)
             individual_arr[n_coords + 1] += random.gauss(0, mutation_sigma_sub)
             individual_arr[n_coords + 2] += random.gauss(0, mutation_sigma_sub)
             
-            # Ocasionalmente (25% das mutações), faz mutação muito agressiva
-            if random.random() < 0.25:
-                # Mutação agressiva: explora até 70% do raio do círculo
-                individual_arr[n_coords + 1] += random.gauss(0, CIRCLE_RADIUS * 0.7)
-                individual_arr[n_coords + 2] += random.gauss(0, CIRCLE_RADIUS * 0.7)
+            # Ocasionalmente, faz mutação muito agressiva
+            if random.random() < PROB_AGGRESSIVE_SUB_MUTATION:
+                # Mutação agressiva: explora até AGGRESSIVE_SUB_RADIUS_FACTOR do raio do círculo
+                individual_arr[n_coords + 1] += random.gauss(0, CIRCLE_RADIUS * AGGRESSIVE_SUB_RADIUS_FACTOR)
+                individual_arr[n_coords + 2] += random.gauss(0, CIRCLE_RADIUS * AGGRESSIVE_SUB_RADIUS_FACTOR)
             
-            # Raramente (10% das mutações), faz mutação extremamente agressiva para exploração global
-            if random.random() < 0.1:
-                # Mutação extrema: explora até 100% do raio do círculo (exploração completa)
-                individual_arr[n_coords + 1] += random.gauss(0, CIRCLE_RADIUS * 1.0)
-                individual_arr[n_coords + 2] += random.gauss(0, CIRCLE_RADIUS * 1.0)
+            # Raramente, faz mutação extremamente agressiva para exploração global
+            if random.random() < PROB_EXTREME_SUB_MUTATION:
+                # Mutação extrema: explora até EXTREME_SUB_RADIUS_FACTOR do raio do círculo
+                individual_arr[n_coords + 1] += random.gauss(0, CIRCLE_RADIUS * EXTREME_SUB_RADIUS_FACTOR)
+                individual_arr[n_coords + 2] += random.gauss(0, CIRCLE_RADIUS * EXTREME_SUB_RADIUS_FACTOR)
         
         mutated_list = individual_arr.tolist()
         enforce_circle(mutated_list[:n_coords])
+        
+        # Garante que a subestação também fique dentro do círculo
+        substation_pos_mutated = [mutated_list[n_coords + 1], mutated_list[n_coords + 2]]
+        substation_pos_mutated = enforce_substation_circle(substation_pos_mutated)
+        mutated_list[n_coords + 1] = substation_pos_mutated[0]
+        mutated_list[n_coords + 2] = substation_pos_mutated[1]
         
         for i in range(len(individual)):
             individual[i] = mutated_list[i]
@@ -343,6 +438,7 @@ def detectar_sobreposicao_cabos(paths, coords, min_distance=50.0, substation_idx
     n_cruzamentos = 0
     penalty_proximidade = 0.0
     n_multiplas_conexoes = 0
+    n_angulos_fechados_sub = 0  # Contador de ângulos muito fechados na subestação
     
     # Detecta múltiplas conexões na mesma turbina (exceto subestação)
     # Em um sistema de cabeamento em árvore, cada turbina deve aparecer em apenas UM path
@@ -394,6 +490,35 @@ def detectar_sobreposicao_cabos(paths, coords, min_distance=50.0, substation_idx
             path_i = paths[i]
             path_j = paths[j]
             
+            # Verifica ângulo entre os últimos segmentos (chegando na subestação)
+            # Se ambos os paths terminam na subestação, calcula o ângulo entre os últimos segmentos
+            if (len(path_i) >= 2 and len(path_j) >= 2 and 
+                path_i[-1] == substation_idx and path_j[-1] == substation_idx):
+                # Último segmento do path_i: penúltimo ponto -> subestação
+                p_penultimo_i = np.array(coords[path_i[-2]])
+                p_sub_i = np.array(coords[path_i[-1]])
+                vec_i = p_sub_i - p_penultimo_i  # Vetor do penúltimo para a subestação
+                
+                # Último segmento do path_j: penúltimo ponto -> subestação
+                p_penultimo_j = np.array(coords[path_j[-2]])
+                p_sub_j = np.array(coords[path_j[-1]])
+                vec_j = p_sub_j - p_penultimo_j  # Vetor do penúltimo para a subestação
+                
+                # Calcula ângulo entre os vetores usando produto escalar
+                # cos(θ) = (v1 · v2) / (|v1| * |v2|)
+                norm_i = np.linalg.norm(vec_i)
+                norm_j = np.linalg.norm(vec_j)
+                
+                if norm_i > 1e-9 and norm_j > 1e-9:  # Evita divisão por zero
+                    cos_angle = np.dot(vec_i, vec_j) / (norm_i * norm_j)
+                    # Limita cos_angle entre -1 e 1 (por erros numéricos)
+                    cos_angle = np.clip(cos_angle, -1.0, 1.0)
+                    angle_degrees = np.degrees(np.arccos(cos_angle))
+                    
+                    # Se o ângulo for menor que o mínimo, os cabos estão muito próximos
+                    if angle_degrees < MIN_ANGLE_SUBSTATION:
+                        n_angulos_fechados_sub += 1
+            
             for k in range(len(path_i) - 1):
                 p1 = np.array(coords[path_i[k]])
                 p2 = np.array(coords[path_i[k + 1]])
@@ -417,15 +542,20 @@ def detectar_sobreposicao_cabos(paths, coords, min_distance=50.0, substation_idx
                             violation = min_distance - dist
                             penalty_proximidade += violation * (min_distance / max(dist, 1.0)) * 1000
     
-    # Penalidade progressiva (não "Death Penalty")
-    # Permite que o AG evolua de soluções com muitos cruzamentos para poucos
-    penalty_cruzamentos = n_cruzamentos * 5e6
+    # Penalidade EXTREMA para cruzamentos: elimina soluções com cruzamentos
+    # Cada cruzamento é inaceitável e deve ser fortemente punido
+    penalty_cruzamentos = n_cruzamentos * PENALTY_CROSSING
     
-    # Penalidade por múltiplas conexões: alta mas não extrema
-    penalty_multiplas = n_multiplas_conexoes * 1e7
+    # Penalidade EXTREMA para múltiplas conexões: elimina soluções com turbinas conectadas múltiplas vezes
+    # Cada conexão múltipla é inaceitável e deve ser fortemente punida
+    penalty_multiplas = n_multiplas_conexoes * PENALTY_MULTIPLE_CONNECTIONS
     
-    # Penalidade total: progressiva, não rejeita completamente
-    penalty_total = penalty_cruzamentos + penalty_proximidade + penalty_multiplas
+    # Penalidade para ângulos muito fechados na subestação
+    # Cabos chegando com ângulo < 30° estão muito próximos e devem ser penalizados
+    penalty_angulo_fechado = n_angulos_fechados_sub * PENALTY_SMALL_ANGLE_SUBSTATION
+    
+    # Penalidade total: extremamente alta para garantir eliminação
+    penalty_total = penalty_cruzamentos + penalty_proximidade + penalty_multiplas + penalty_angulo_fechado
     
     return penalty_total
 
@@ -460,6 +590,10 @@ def evaluate_phase2(individual):
         violations_close = close_distances < N_DIAMETERS
         penalty_close_turbines = np.sum(np.maximum(0, N_DIAMETERS - close_distances[violations_close])) * 1e6
         
+        # Penalidade: subestação fora do círculo
+        dist_sub_from_center = np.linalg.norm(substation_pos)
+        penalty_sub_out_of_circle = np.maximum(0, dist_sub_from_center - CIRCLE_RADIUS) * 1e6
+        
         # Penalidade: distância mínima entre subestação e turbinas (50m)
         dist_sub_to_turbines = np.linalg.norm(turb_coords - substation_pos, axis=1)
         min_dist_sub_turb = np.min(dist_sub_to_turbines)
@@ -472,30 +606,29 @@ def evaluate_phase2(individual):
                                    *TURB_ATRBT_DATA[2:4]))
 
         # Cabeamento usando posição da subestação do genoma
-        # Encontra a turbina mais próxima da subestação para usar como ponto de coleta
-        distancias_subestacao = np.linalg.norm(turb_coords - substation_pos, axis=1)
-        ponto_de_coleta_idx = np.argmin(distancias_subestacao)
+        # IMPORTANTE: Adiciona a subestação às coordenadas para que o cálculo de cabeamento
+        # use a posição real otimizada pelo GA, não apenas a turbina mais próxima
+        coords_with_substation = np.vstack([turb_coords, substation_pos.reshape(1, 2)])
+        substation_idx = IND_SIZE  # Índice da subestação após todas as turbinas
         
         try:
             planta, resultados = cabling_v3.analisar_layout_completo(
-                turb_coords, sub=ponto_de_coleta_idx, n_grupos=n_grupos)
+                coords_with_substation, sub=substation_idx, n_grupos=n_grupos)
             
             custo_total = resultados['custo_total_usd']
             perdas_joule_mwh = resultados['perda_anual_mwh']
             
             # Detecta cruzamentos, proximidade excessiva e múltiplas conexões
-            # Usa distância mínima de 50m entre segmentos de cabos
             # Passa índice da subestação para permitir múltiplas conexões nela (mas não em turbinas)
             penalty_overlap = detectar_sobreposicao_cabos(
-                planta.paths, turb_coords, min_distance=50.0, substation_idx=ponto_de_coleta_idx)
+                planta.paths, coords_with_substation, min_distance=MIN_CABLE_DISTANCE, substation_idx=substation_idx)
             
-            # Penalidade progressiva: permite que o AG evolua de soluções com muitos cruzamentos
-            # para soluções com poucos, em vez de descartar tudo. Soluções sem cruzamentos
-            # são claramente superiores, mas soluções com poucos ainda podem ser refinadas.
+            # Penalidade EXTREMA: elimina soluções com cruzamentos ou múltiplas conexões
+            # Cruzamentos e múltiplas conexões são inaceitáveis e devem ser eliminados
             penalty_total_cabos = penalty_overlap
             
-            aep_liquido = aep_bruto - perdas_joule_mwh - penalty_out_of_circle - penalty_close_turbines - penalty_total_cabos - penalty_sub_too_close
-            custo_penalizado = custo_total + penalty_out_of_circle + penalty_close_turbines + penalty_total_cabos + penalty_sub_too_close
+            aep_liquido = aep_bruto - perdas_joule_mwh - penalty_out_of_circle - penalty_close_turbines - penalty_total_cabos - penalty_sub_too_close - penalty_sub_out_of_circle
+            custo_penalizado = custo_total + penalty_out_of_circle + penalty_close_turbines + penalty_total_cabos + penalty_sub_too_close + penalty_sub_out_of_circle
             
         except Exception as e:
             # Se houver erro no cabeamento, penaliza fortemente
@@ -515,10 +648,10 @@ def evaluate_phase2(individual):
 # CONFIGURAÇÃO DAS TOOLBOXES
 # =============================================================================
 
-# Toolbox Fase 1 (Single-objective) - EXATO de wind_farm_GA_16.py
-toolbox_phase1.register("mate", tools.cxBlend, alpha=0.5)
-toolbox_phase1.register("mutate", mutate_phase1, mu=0, sigma=100, indpb=0.4)
-toolbox_phase1.register("select", tools.selTournament, tournsize=5)  # EXATO: tournsize=5
+# Toolbox Fase 1 (Single-objective)
+toolbox_phase1.register("mate", tools.cxBlend, alpha=CROSSOVER_ALPHA_P1)
+toolbox_phase1.register("mutate", mutate_phase1, mu=MU_P1, sigma=SIGMA_P1, indpb=INDPB_P1)
+toolbox_phase1.register("select", tools.selTournament, tournsize=TOURNSIZE_P1)
 toolbox_phase1.register("evaluate", evaluate_phase1)
 
 # Toolbox Fase 2 (Multi-objective)
@@ -530,7 +663,7 @@ def mate_phase2(ind1, ind2):
     n_coords = IND_SIZE * 2
     
     # Crossover blend para coordenadas das turbinas
-    tools.cxBlend(ind1[:n_coords], ind2[:n_coords], alpha=0.5)
+    tools.cxBlend(ind1[:n_coords], ind2[:n_coords], alpha=CROSSOVER_ALPHA_P2)
     
     # Crossover aritmético para número de grupos (índice n_coords)
     alpha = random.random()
@@ -557,7 +690,7 @@ def mate_phase2(ind1, ind2):
     return ind1, ind2
 
 toolbox_phase2.register("mate", mate_phase2)
-toolbox_phase2.register("mutate", mutate_phase2, mu=0, sigma=100, indpb=0.4)
+toolbox_phase2.register("mutate", mutate_phase2, mu=MU_P2, sigma=SIGMA_P2, indpb=INDPB_P2)
 toolbox_phase2.register("select", tools.selNSGA2)
 toolbox_phase2.register("evaluate", evaluate_phase2)
 
@@ -583,20 +716,13 @@ def optimize_phase1(POP_SIZE, NGEN, CXPB, MUTPB):
     os.makedirs(evolution_dir_phase1, exist_ok=True)
     
     pop = toolbox_phase1.population(n=POP_SIZE)
-    hof = tools.HallOfFame(maxsize=50)  # Guarda os melhores layouts
+    hof = tools.HallOfFame(maxsize=HOF_SIZE_P1)  # Guarda os melhores layouts
     
     stats = tools.Statistics(lambda ind: ind.fitness.values)
     stats.register("avg", np.mean)
     stats.register("std", np.std)
     stats.register("min", np.min)
     stats.register("max", np.max)
-
-    # --- Parameters for Adaptive GA and Early Stopping - EXATOS de wind_farm_GA_16.py ---
-    PATIENCE = 150
-    MIN_DELTA = 10.0
-    SIGMA_NORMAL = 100
-    SIGMA_AGGRESSIVE = 250
-    AGGRESSIVE_DURATION = 15
 
     logbook = tools.Logbook()
     logbook.header = ['gen', 'nevals'] + (stats.fields if stats else [])
@@ -636,19 +762,19 @@ def optimize_phase1(POP_SIZE, NGEN, CXPB, MUTPB):
         # EXATO de wind_farm_GA_16.py
         current_max_fitness = hof[0].fitness.values[0]
 
-        if (current_max_fitness - last_max_fitness) < MIN_DELTA:
+        if (current_max_fitness - last_max_fitness) < MIN_DELTA_P1:
             stagnation_counter += 1
         else:
             stagnation_counter = 0
 
         last_max_fitness = current_max_fitness
 
-        if stagnation_counter >= PATIENCE:
+        if stagnation_counter >= PATIENCE_P1:
             if not aggressive_phase_triggered:
-                print(f"--- Stagnation detected at gen {gen}. Increasing sigma to {SIGMA_AGGRESSIVE} for {AGGRESSIVE_DURATION} generations. ---")
-                toolbox_phase1.register("mutate", mutate_phase1, mu=0, sigma=SIGMA_AGGRESSIVE, indpb=0.4)
+                print(f"--- Stagnation detected at gen {gen}. Increasing sigma to {SIGMA_AGGRESSIVE_P1} for {AGGRESSIVE_DURATION_P1} generations. ---")
+                toolbox_phase1.register("mutate", mutate_phase1, mu=MU_P1, sigma=SIGMA_AGGRESSIVE_P1, indpb=INDPB_P1)
                 aggressive_phase_triggered = True
-                aggressive_phase_countdown = AGGRESSIVE_DURATION
+                aggressive_phase_countdown = AGGRESSIVE_DURATION_P1
                 stagnation_counter = 0
             else:
                 print(f"--- Stagnation persists after aggressive mutation. Stopping early at generation {gen}. ---")
@@ -657,8 +783,8 @@ def optimize_phase1(POP_SIZE, NGEN, CXPB, MUTPB):
         if aggressive_phase_countdown > 0:
             aggressive_phase_countdown -= 1
             if aggressive_phase_countdown == 0:
-                print(f"--- End of aggressive mutation phase at generation {gen}. Reverting sigma to {SIGMA_NORMAL}. ---")
-                toolbox_phase1.register("mutate", mutate_phase1, mu=0, sigma=SIGMA_NORMAL, indpb=0.4)
+                print(f"--- End of aggressive mutation phase at generation {gen}. Reverting sigma to {SIGMA_NORMAL_P1}. ---")
+                toolbox_phase1.register("mutate", mutate_phase1, mu=MU_P1, sigma=SIGMA_NORMAL_P1, indpb=INDPB_P1)
 
         # EXATO de wind_farm_GA_16.py - sem elitismo, substitui população completamente
         offspring = toolbox_phase1.select(pop, len(pop))
@@ -705,7 +831,7 @@ def optimize_phase1(POP_SIZE, NGEN, CXPB, MUTPB):
     
     # Seleciona top layouts para Fase 2
     top_layouts = sorted(hof, key=lambda x: x.fitness.values[0], reverse=True)
-    n_top = min(30, len(top_layouts))  # Top 10% ou 30 layouts
+    n_top = min(N_TOP_LAYOUTS, len(top_layouts))
     best_layouts = top_layouts[:n_top]
     
     print(f"\nFase 1 concluída. Melhor AEP bruto: {hof[0].fitness.values[0]/1000:.2f} GWh")
@@ -787,6 +913,9 @@ def optimize_phase2(best_layouts_phase1, POP_SIZE, NGEN, CXPB, MUTPB, start_gen_
                 centroide[1] + radius * np.sin(angle)
             ]
         
+        # Garante que a subestação fique dentro do círculo
+        substation_pos = enforce_substation_circle(np.array(substation_pos)).tolist()
+        
         # Cria indivíduo da Fase 2 com posição variada da subestação
         ind_phase2 = create_individual_phase2_from_coords(coords, substation_pos=substation_pos)
         pop.append(ind_phase2)
@@ -809,9 +938,8 @@ def optimize_phase2(best_layouts_phase1, POP_SIZE, NGEN, CXPB, MUTPB, start_gen_
             
             # Adiciona perturbação maior para diversidade, mas mantém base nos melhores layouts
             coords_perturbed = coords.copy()
-            # Perturbação variável: entre 150-300m para explorar mais o espaço
-            # Ainda mantém proximidade aos melhores layouts, mas permite mais exploração
-            perturbation_sigma = random.uniform(150, 300)  # Varia entre 150-300m
+            # Perturbação variável para explorar mais o espaço
+            perturbation_sigma = random.uniform(PERTURBATION_SIGMA_MIN, PERTURBATION_SIGMA_MAX)
             for j in range(len(coords_perturbed)):
                 coords_perturbed[j, 0] += random.gauss(0, perturbation_sigma)
                 coords_perturbed[j, 1] += random.gauss(0, perturbation_sigma)
@@ -833,6 +961,9 @@ def optimize_phase2(best_layouts_phase1, POP_SIZE, NGEN, CXPB, MUTPB, start_gen_
                 centroide_perturbed[0] + random.gauss(0, CIRCLE_RADIUS * 0.4),
                 centroide_perturbed[1] + random.gauss(0, CIRCLE_RADIUS * 0.4)
             ]
+            
+            # Garante que a subestação fique dentro do círculo
+            substation_pos_perturbed = enforce_substation_circle(np.array(substation_pos_perturbed)).tolist()
             
             ind_phase2 = create_individual_phase2_from_coords(coords_perturbed, substation_pos=substation_pos_perturbed)
             pop.append(ind_phase2)
@@ -862,6 +993,8 @@ def optimize_phase2(best_layouts_phase1, POP_SIZE, NGEN, CXPB, MUTPB, start_gen_
             coords = coords_array.reshape((IND_SIZE, 2))
             centroide = np.mean(coords, axis=0)
             substation_pos = centroide.tolist()  # Subestação exatamente no centroide
+            # Garante que a subestação fique dentro do círculo
+            substation_pos = enforce_substation_circle(np.array(substation_pos)).tolist()
             ind_phase2 = create_individual_phase2_from_coords(coords, substation_pos=substation_pos)
             pop.append(ind_phase2)
         
@@ -888,10 +1021,7 @@ def optimize_phase2(best_layouts_phase1, POP_SIZE, NGEN, CXPB, MUTPB, start_gen_
     stats.register("min", np.min)
     stats.register("max", np.max)
     
-    # Parâmetros para detecção de estagnação (similar à Fase 1)
-    PATIENCE = 100
-    MIN_DELTA_AEP = 10.0  # MWh - mudança mínima em AEP
-    MIN_DELTA_COST = 100.0  # USD - mudança mínima em custo (ajustado para detectar melhorias pequenas)
+    # Usa parâmetros de estagnação definidos no início do arquivo
     
     stagnation_counter = 0
     last_best_aep = 0.0
@@ -1060,8 +1190,8 @@ def optimize_phase2(best_layouts_phase1, POP_SIZE, NGEN, CXPB, MUTPB, start_gen_
         
         # Verifica se houve melhoria significativa em AEP ou custo
         # Compara com o melhor histórico, não apenas com a última geração
-        aep_improved = (current_best_aep - last_best_aep) >= MIN_DELTA_AEP
-        cost_improved = (last_best_cost - current_best_cost) >= MIN_DELTA_COST
+        aep_improved = (current_best_aep - last_best_aep) >= MIN_DELTA_AEP_P2
+        cost_improved = (last_best_cost - current_best_cost) >= MIN_DELTA_COST_P2
         
         # Se houve melhoria, reseta contador
         if aep_improved or cost_improved:
@@ -1077,10 +1207,10 @@ def optimize_phase2(best_layouts_phase1, POP_SIZE, NGEN, CXPB, MUTPB, start_gen_
             last_best_cost = current_best_cost
         
         # Parada precoce se estagnado por muitas gerações
-        if stagnation_counter >= PATIENCE:
+        if stagnation_counter >= PATIENCE_P2:
             print(f"\n--- Gen {gen}: Estagnação detectada na Fase 2. Parando precocemente. ---")
             print(f"   Melhor AEP: {last_best_aep/1000:.2f} GWh, Melhor Custo: {last_best_cost:.2f} USD")
-            print(f"   Sem melhoria significativa por {PATIENCE} gerações.")
+            print(f"   Sem melhoria significativa por {PATIENCE_P2} gerações.")
             break
         
         # Calcula número médio de grupos
@@ -1125,7 +1255,7 @@ def optimize_phase2(best_layouts_phase1, POP_SIZE, NGEN, CXPB, MUTPB, start_gen_
             print(f"Gen {gen}: AEP Max={aep_max_mwh:.2f} MWh ({aep_max_mwh/1000:.2f} GWh), "
                   f"Cost Min={cost_min_usd:.2f} USD, "
                   f"Grupos Médio={n_grupos_medio}, "
-                  f"Valid={n_valid}/{len(pop)}, Pareto={len(hof)}, Stagnation={stagnation_counter}/{PATIENCE}")
+                  f"Valid={n_valid}/{len(pop)}, Pareto={len(hof)}, Stagnation={stagnation_counter}/{PATIENCE_P2}")
     
     pool.close()
     pool.join()
@@ -1160,13 +1290,13 @@ def save_results(hof_final):
         coords = np.array(coords_flat).reshape((IND_SIZE, 2))
         
         # Recalcula perdas para salvar usando posição da subestação do genoma
-        # Encontra a turbina mais próxima da subestação para usar como ponto de coleta
-        distancias_subestacao = np.linalg.norm(coords - substation_pos, axis=1)
-        ponto_de_coleta_idx = np.argmin(distancias_subestacao)
+        # IMPORTANTE: Adiciona a subestação às coordenadas para que o cálculo use a posição real
+        coords_with_substation = np.vstack([coords, substation_pos.reshape(1, 2)])
+        substation_idx = IND_SIZE  # Índice da subestação após todas as turbinas
         
         try:
             _, resultados_cabeamento = cabling_v3.analisar_layout_completo(
-                coords, sub=ponto_de_coleta_idx, n_grupos=n_grupos)
+                coords_with_substation, sub=substation_idx, n_grupos=n_grupos)
             perdas = resultados_cabeamento['perda_anual_mwh']
         except:
             perdas = 0.0
@@ -1204,17 +1334,7 @@ def main():
     random.seed(42)
     start_time = time.time()
     
-    # Parâmetros Fase 1 - EXATOS de wind_farm_GA_16.py
-    POP_SIZE_P1 = 300
-    NGEN_P1 = 500   # EXATO: 500 gerações
-    CXPB_P1 = 0.95
-    MUTPB_P1 = 0.7
-    
-    # Parâmetros Fase 2 (refinamento)
-    POP_SIZE_P2 = 300
-    NGEN_P2 = 500
-    CXPB_P2 = 0.95
-    MUTPB_P2 = 0.7
+    # Parâmetros já definidos no início do arquivo
     
     print("=" * 80)
     print("ESTRATÉGIA HÍBRIDA EM DUAS FASES")
