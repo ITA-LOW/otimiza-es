@@ -29,7 +29,7 @@ from multi_objetivo.cabling_v3 import analisar_layout_completo
 # Para 64 turbinas: CIRCLE_RADIUS = 3000, IND_SIZE = 64
 
 CIRCLE_RADIUS = 5000  # Raio do círculo de restrição (metros)
-IND_SIZE = 64         # Número de turbinas
+IND_SIZE = 16     # Número de turbinas
 EVOLUTION_DIR_PHASE1 = "pareto_front_results/evolution_phase1"  # Diretório Fase 1
 EVOLUTION_DIR_PHASE2 = "pareto_front_results/evolution"        # Diretório Fase 2
 SUBSTATION_CONTINENT = np.array([[-1.0, -1350.0]])  # Posição de referência (não usado na Fase 2)

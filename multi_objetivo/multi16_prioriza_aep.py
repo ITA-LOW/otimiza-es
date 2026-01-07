@@ -30,7 +30,8 @@ import multi_objetivo.cabling_v3 as cabling_v3
 # CONFIGURAÇÃO DO AMBIENTE DEAP E CONSTANTES
 # =============================================================================
 
-# Limpa tipos anteriores se existirem (para evitar conflitos)
+# Limpa tipos anteriores se existirem (para evitar conflitos ao reexecutar)
+# O DEAP mantém tipos criados anteriormente, então precisamos limpar antes de recriar
 if hasattr(creator, "FitnessMax"):
     del creator.FitnessMax
 if hasattr(creator, "FitnessMulti"):
@@ -41,117 +42,152 @@ if hasattr(creator, "IndividualPhase2"):
     del creator.IndividualPhase2
 
 # Fase 1: Single-objective (apenas AEP bruto)
+# FitnessMax: maximiza um único objetivo (AEP bruto)
+# IndividualPhase1: indivíduo da Fase 1 = lista de coordenadas [x1, y1, x2, y2, ...]
 creator.create("FitnessMax", base.Fitness, weights=(1.0,))
 creator.create("IndividualPhase1", list, fitness=creator.FitnessMax)
 
 # Fase 2: Multi-objective (AEP líquido + Custo)
-creator.create("FitnessMulti", base.Fitness, weights=(1.0, -1.0))  # AEP tem peso 100x maior!
+# FitnessMulti: maximiza AEP (peso +1.0) e minimiza Custo (peso -1.0)
+# IndividualPhase2: indivíduo da Fase 2 = [coords turbinas] + [n_grupos] + [coords subestação]
+creator.create("FitnessMulti", base.Fitness, weights=(1.0, -1.0))
 creator.create("IndividualPhase2", list, fitness=creator.FitnessMulti)
 
 # Cria toolboxes separadas para cada fase
+# Cada toolbox registra operadores genéticos específicos (crossover, mutação, seleção)
 toolbox_phase1 = base.Toolbox()
 toolbox_phase2 = base.Toolbox()
 
 # =============================================================================
 # PARÂMETROS DO PARQUE EÓLICO
 # =============================================================================
-IND_SIZE = 16
-CIRCLE_RADIUS = 5000
-N_DIAMETERS = 260
+IND_SIZE = 16  # Número de turbinas eólicas no parque
+CIRCLE_RADIUS = 5000  # Raio do círculo de restrição (metros) - todas as turbinas devem estar dentro
+N_DIAMETERS = 260  # Distância mínima entre turbinas em diâmetros de rotor (restrição de wake)
 MIN_SUB_TURB_DIST = 50.0  # Distância mínima entre subestação e turbinas (metros)
 
 # Limites para número de grupos de cabeamento (será otimizado pelo AG na Fase 2)
-MIN_GRUPOS = 2   # Mínimo: 2 grupos
-MAX_GRUPOS = 64  # Máximo: 16 grupos (uma turbina por grupo)
-N_GRUPOS_INICIAL = MIN_GRUPOS  # Valor inicial
+# O número de grupos é codificado como gene normalizado [0,1] e mapeado para [MIN_GRUPOS, MAX_GRUPOS]
+MIN_GRUPOS = 2   # Mínimo: 2 grupos (todas as turbinas em 2 strings)
+MAX_GRUPOS = 64  # Máximo: 64 grupos (uma turbina por grupo - limite superior flexível)
+N_GRUPOS_INICIAL = MIN_GRUPOS  # Valor inicial do gene de agrupamento (normalizado)
 
 # =============================================================================
 # PARÂMETROS DO ALGORITMO GENÉTICO - FASE 1
 # =============================================================================
-POP_SIZE_P1 = 300
-NGEN_P1 = 500
-CXPB_P1 = 0.95 # Probabilidade de crossover
-MUTPB_P1 = 0.95  # Probabilidade de mutação
-INDPB_P1 = 0.95  # Probabilidade de mutar cada gene individualmente
+# Fase 1: Otimização rápida de layout (apenas AEP bruto, sem cálculo de cabeamento)
+# Objetivo: Explorar intensamente o espaço de layouts para encontrar configurações
+# com alto AEP bruto, que servirão como ponto de partida para a Fase 2
 
-# Parâmetros de mutação Fase 1
-MU_P1 = 0  # Média da distribuição gaussiana para mutação
-SIGMA_P1 = 100  # Desvio padrão da distribuição gaussiana para mutação
+POP_SIZE_P1 = 300  # Tamanho da população (número de indivíduos por geração)
+NGEN_P1 = 1500  # Número máximo de gerações
+CXPB_P1 = 0.95  # Probabilidade de crossover (95% dos pares fazem crossover)
+MUTPB_P1 = 0.7  # Probabilidade de mutação (70% dos indivíduos são mutados)
+INDPB_P1 = 0.4  # Probabilidade de mutar cada gene individualmente (40% dos genes)
 
-# Parâmetros de crossover Fase 1
+# Parâmetros de mutação Fase 1 (mutação gaussiana)
+MU_P1 = 0  # Média da distribuição gaussiana (centro em zero = mutação simétrica)
+SIGMA_P1 = 100  # Desvio padrão da distribuição gaussiana (metros) - controla intensidade da mutação
+
+# Parâmetros de crossover Fase 1 (Blend Crossover)
+# Blend Crossover: combina dois pais usando combinação linear controlada por alpha
+# alpha=0.5: filhos ficam entre os pais (exploração moderada)
 CROSSOVER_ALPHA_P1 = 0.5  # Parâmetro alpha do crossover blend
 
-# Parâmetros de seleção Fase 1
-TOURNSIZE_P1 = 5  # Tamanho do torneio para seleção
+# Parâmetros de seleção Fase 1 (Seleção por Torneio)
+TOURNSIZE_P1 = 5  # Tamanho do torneio (maior = mais pressão seletiva, favorece melhores)
 
 # Parâmetros de estagnação e parada precoce Fase 1
-PATIENCE_P1 = 150  # Número de gerações sem melhoria antes de parar
+# Sistema adaptativo: detecta quando a otimização para de melhorar e aumenta
+# a intensidade da mutação para escapar de ótimos locais
+PATIENCE_P1 = 150  # Número de gerações sem melhoria antes de ativar mutação agressiva
 MIN_DELTA_P1 = 10.0  # Melhoria mínima (MWh) para resetar contador de estagnação
-SIGMA_NORMAL_P1 = 100  # Sigma normal para mutação
-SIGMA_AGGRESSIVE_P1 = 250  # Sigma agressivo quando detecta estagnação
+SIGMA_NORMAL_P1 = 100  # Sigma normal para mutação (exploração local)
+SIGMA_AGGRESSIVE_P1 = 250  # Sigma agressivo quando detecta estagnação (exploração global)
 AGGRESSIVE_DURATION_P1 = 15  # Duração (gerações) da fase de mutação agressiva
 
 # Parâmetros do Hall of Fame Fase 1
-HOF_SIZE_P1 = 50  # Número de melhores indivíduos mantidos
-N_TOP_LAYOUTS = 30  # Número de melhores layouts da Fase 1 usados na Fase 2
+# Hall of Fame: mantém os melhores indivíduos encontrados durante toda a otimização
+HOF_SIZE_P1 = 50  # Número de melhores indivíduos mantidos no Hall of Fame
+N_TOP_LAYOUTS = 30  # Número de melhores layouts da Fase 1 usados como sementes na Fase 2
 
 # =============================================================================
 # PARÂMETROS DO ALGORITMO GENÉTICO - FASE 2
 # =============================================================================
-POP_SIZE_P2 = 300
-NGEN_P2 = 500
-CXPB_P2 = 0.95  # Probabilidade de crossover
-MUTPB_P2 = 0.7  # Probabilidade de mutação
-INDPB_P2 = 0.4  # Probabilidade de mutar cada gene individualmente
+# Fase 2: Otimização multiobjetivo (AEP líquido + Custo de cabeamento)
+# Objetivo: Refinar os melhores layouts da Fase 1 considerando cabeamento completo
+# e encontrar a frente de Pareto otimizando simultaneamente AEP e Custo
 
-# Parâmetros de mutação Fase 2
-MU_P2 = 0  # Média da distribuição gaussiana para mutação
-SIGMA_P2 = 100  # Desvio padrão da distribuição gaussiana para mutação (turbinas)
-SIGMA_SUB_MULTIPLIER = 5  # Multiplicador do sigma para mutação da subestação
-SIGMA_SUB_MIN = 200.0  # Sigma mínimo para mutação da subestação (metros)
+POP_SIZE_P2 = 300  # Tamanho da população (mantém mesmo tamanho da Fase 1)
+NGEN_P2 = 1500  # Número máximo de gerações
+CXPB_P2 = CXPB_P1  # Probabilidade de crossover (usa mesmo valor da Fase 1)
+MUTPB_P2 = MUTPB_P1  # Probabilidade de mutação (usa mesmo valor da Fase 1)
+INDPB_P2 = INDPB_P1  # Probabilidade de mutar cada gene individualmente
+
+# Parâmetros de mutação Fase 2 (mutação gaussiana diferenciada por componente)
+MU_P2 = 0  # Média da distribuição gaussiana (centro em zero)
+SIGMA_P2 = 100  # Desvio padrão para mutação das coordenadas das turbinas (metros)
+SIGMA_SUB_MULTIPLIER = 5  # Multiplicador do sigma para mutação da subestação (maior exploração)
+SIGMA_SUB_MIN = 200.0  # Sigma mínimo para mutação da subestação (metros) - garante exploração mínima
 
 # Probabilidades de mutação específicas Fase 2
-PROB_MUTATE_GROUPS_P2 = 0.3  # Probabilidade de mutar número de grupos (30%)
-PROB_MUTATE_SUBSTATION_P2 = 0.9  # Probabilidade de mutar posição da subestação (90%)
-PROB_AGGRESSIVE_SUB_MUTATION = 0.25  # Probabilidade de mutação agressiva da subestação (25%)
-PROB_EXTREME_SUB_MUTATION = 0.1  # Probabilidade de mutação extrema da subestação (10%)
+# A Fase 2 tem componentes adicionais (número de grupos e posição da subestação)
+# que precisam de estratégias de mutação diferentes
+PROB_MUTATE_GROUPS_P2 = 0.3  # Probabilidade de mutar número de grupos (30% - mutação menos frequente)
+PROB_MUTATE_SUBSTATION_P2 = 0.9  # Probabilidade de mutar posição da subestação (90% - mutação frequente)
+PROB_AGGRESSIVE_SUB_MUTATION = 0.25  # Probabilidade de mutação agressiva da subestação (25% - exploração ampla)
+PROB_EXTREME_SUB_MUTATION = 0.1  # Probabilidade de mutação extrema da subestação (10% - exploração global)
 
 # Fatores de mutação agressiva/extrema da subestação
+# Mutação agressiva/extrema: permite saltos grandes no espaço de busca da subestação
+# para escapar de ótimos locais e explorar diferentes regiões do parque
 AGGRESSIVE_SUB_RADIUS_FACTOR = 0.7  # Fator do raio para mutação agressiva (70% do CIRCLE_RADIUS)
 EXTREME_SUB_RADIUS_FACTOR = 1.0  # Fator do raio para mutação extrema (100% do CIRCLE_RADIUS)
 
-# Parâmetros de crossover Fase 2
-CROSSOVER_ALPHA_P2 = 0.5  # Parâmetro alpha do crossover blend para turbinas
+# Parâmetros de crossover Fase 2 (Blend Crossover)
+# TODAS as variáveis (turbinas, grupos, subestação) usam Blend Crossover para consistência
+CROSSOVER_ALPHA_P2 = 0.5  # Parâmetro alpha do crossover blend (mesmo valor para todas as variáveis)
 
 # Parâmetros de estagnação e parada precoce Fase 2
+# Sistema adaptativo para multiobjetivo: detecta estagnação em ambos os objetivos
 PATIENCE_P2 = 100  # Número de gerações sem melhoria antes de parar
-MIN_DELTA_AEP_P2 = 10.0  # Melhoria mínima em AEP (MWh) para resetar contador
-MIN_DELTA_COST_P2 = 100.0  # Melhoria mínima em custo (USD) para resetar contador
+MIN_DELTA_AEP_P2 = 10.0  # Melhoria mínima em AEP (MWh) para resetar contador de estagnação
+MIN_DELTA_COST_P2 = 100.0  # Melhoria mínima em custo (USD) para resetar contador de estagnação
 
 # Parâmetros de inicialização da população Fase 2
+# A população inicial da Fase 2 é criada a partir dos melhores layouts da Fase 1
+# com perturbações para manter diversidade
 PERTURBATION_SIGMA_MIN = 150  # Sigma mínimo para perturbação de layouts da Fase 1 (metros)
 PERTURBATION_SIGMA_MAX = 300  # Sigma máximo para perturbação de layouts da Fase 1 (metros)
 
 # Parâmetros de detecção de sobreposição de cabos
+# Sistema de penalidades para garantir soluções fisicamente viáveis:
+# - Cruzamentos de cabos são inaceitáveis (penalidade extrema)
+# - Múltiplas conexões na mesma turbina são inaceitáveis (penalidade extrema)
+# - Cabos muito próximos na subestação são penalizados (problema de segurança)
 MIN_CABLE_DISTANCE = 100.0  # Distância mínima permitida entre segmentos de cabos (metros)
 MIN_ANGLE_SUBSTATION = 15  # Ângulo mínimo (graus) entre cabos chegando na subestação (menor = muito próximo)
-PENALTY_CROSSING = 1e3  # Penalidade por cruzamento de cabos
-PENALTY_MULTIPLE_CONNECTIONS = 1e9  # Penalidade por múltiplas conexões na mesma turbina
-PENALTY_SMALL_ANGLE_SUBSTATION = 1e7  # Penalidade por ângulo muito fechado na subestação
+PENALTY_CROSSING = 1e3  # Penalidade por cruzamento de cabos (alta, mas permite recuperação)
+PENALTY_MULTIPLE_CONNECTIONS = 1e9  # Penalidade por múltiplas conexões na mesma turbina (extrema - elimina solução)
+PENALTY_SMALL_ANGLE_SUBSTATION = 1e7  # Penalidade por ângulo muito fechado na subestação (muito alta - quase elimina)
 
 # =============================================================================
 # PRÉ-CARREGAMENTO DE DADOS
 # =============================================================================
+# Carrega dados de configuração do parque eólico uma única vez no início
+# para evitar recarregamento repetido durante a otimização (otimização de performance)
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 config_dir = "config"
-main_yaml_path = os.path.join(BASE_DIR, config_dir, "iea37-ex64.yaml")
+main_yaml_path = os.path.join(BASE_DIR, config_dir, "iea37-ex16.yaml")
+# Carrega coordenadas iniciais das turbinas (usadas como semente para população inicial)
 initial_coordinates, fname_turb, fname_wr = getTurbLocYAML(main_yaml_path)
 
+# Carrega dados de vento (wind rose) e características das turbinas
 full_path_wr = os.path.join(BASE_DIR, config_dir, "iea37-windrose.yaml")
 full_path_turb = os.path.join(BASE_DIR, config_dir, "iea37-335mw.yaml")
-TURB_ATRBT_DATA = getTurbAtrbtYAML(full_path_turb)
-WIND_ROSE_DATA = getWindRoseYAML(full_path_wr)
+TURB_ATRBT_DATA = getTurbAtrbtYAML(full_path_turb)  # [turb_ci, turb_co, rated_ws, rated_pwr, turb_diam]
+WIND_ROSE_DATA = getWindRoseYAML(full_path_wr)  # [wind_dir, wind_freq, wind_speed]
 
 # =============================================================================
 # FUNÇÕES DE INICIALIZAÇÃO, RESTRIÇÃO E MUTAÇÃO - FASE 1
@@ -159,24 +195,36 @@ WIND_ROSE_DATA = getWindRoseYAML(full_path_wr)
 # =============================================================================
 
 def create_individual_from_coordinates(coords):
-    """Cria indivíduo a partir de coordenadas - EXATO de wind_farm_GA_16.py"""
+    """
+    Cria indivíduo da Fase 1 a partir de coordenadas.
+    Converte coordenadas 2D (IND_SIZE, 2) para lista plana [x1, y1, x2, y2, ...]
+    """
     individual = creator.IndividualPhase1(np.array(coords).flatten().tolist())
     return individual
 
+# Registra funções de criação de indivíduos e população na toolbox da Fase 1
 toolbox_phase1.register("individual", create_individual_from_coordinates, coords=initial_coordinates.tolist())
 toolbox_phase1.register("population", tools.initRepeat, list, toolbox_phase1.individual)
 
 def is_within_circle(x, y, radius):
-    """Verifica se coordenadas estão dentro do círculo - EXATO de wind_farm_GA_16.py"""
+    """
+    Verifica se coordenadas estão dentro do círculo de restrição.
+    Usa equação do círculo: x² + y² ≤ r²
+    """
     x = np.asarray(x)
     y = np.asarray(y)
     return x**2 + y**2 <= radius**2
 
 def enforce_circle(individual):
-    """Enforce circle constraint - EXATO de wind_farm_GA_16.py"""
+    """
+    Aplica restrição de círculo: se uma turbina está fora do círculo,
+    projeta ela de volta para a borda do círculo mantendo o ângulo.
+    Isso garante que todas as turbinas fiquem dentro da área permitida.
+    """
     for i in range(IND_SIZE):
         x, y = individual[2*i], individual[2*i + 1]
         if not is_within_circle(x, y, CIRCLE_RADIUS):
+            # Calcula ângulo e projeta para a borda do círculo
             angle = np.arctan2(y, x)
             distance = CIRCLE_RADIUS
             individual[2*i] = distance * np.cos(angle)
@@ -204,7 +252,16 @@ def mutate_phase1(individual, mu, sigma, indpb):
 def create_individual_phase2_from_coords(coords, substation_pos=None):
     """
     Cria um indivíduo da Fase 2 a partir de coordenadas da Fase 1.
-    Estrutura: [32 coords turbinas] + [1 n_grupos] + [2 coords subestação] = 35 variáveis
+    
+    Estrutura do genoma da Fase 2:
+    - [32 coords turbinas]: coordenadas (x, y) de cada turbina (IND_SIZE * 2 = 32)
+    - [1 n_grupos]: número de grupos normalizado [0, 1] (será mapeado para [MIN_GRUPOS, MAX_GRUPOS])
+    - [2 coords subestação]: coordenadas (x, y) da subestação offshore
+    Total: 35 variáveis
+    
+    Args:
+        coords: Coordenadas das turbinas (array 2D ou lista plana)
+        substation_pos: Posição inicial da subestação (se None, gera aleatória)
     """
     # Garante que coords é um array numpy
     if isinstance(coords, list):
@@ -245,8 +302,21 @@ def create_individual_phase2_from_coords(coords, substation_pos=None):
 
 def mutate_phase2(individual, mu, sigma, indpb):
     """
-    Mutação para Fase 2: coordenadas das turbinas + número de grupos + posição da subestação.
-    Estrutura: [32 coords turbinas] + [1 n_grupos] + [2 coords subestação] = 35 variáveis
+    Mutação para Fase 2: aplica mutação gaussiana diferenciada para cada componente.
+    
+    Estrutura do indivíduo: [32 coords turbinas] + [1 n_grupos] + [2 coords subestação] = 35 variáveis
+    
+    Estratégia de mutação:
+    1. Coordenadas das turbinas: mutação gaussiana padrão (sigma)
+    2. Número de grupos: mutação gaussiana com sigma menor (0.1) para mudanças suaves
+    3. Posição da subestação: mutação gaussiana com sigma maior (SIGMA_SUB_MULTIPLIER * sigma)
+       + mutações agressivas/extremas ocasionais para exploração global
+    
+    Args:
+        individual: Indivíduo da Fase 2 a ser mutado
+        mu: Média da distribuição gaussiana (geralmente 0)
+        sigma: Desvio padrão base para mutação das turbinas
+        indpb: Probabilidade de mutar cada gene individualmente
     """
     individual_arr = np.array(individual)
     n_coords = IND_SIZE * 2
@@ -310,7 +380,17 @@ def evaluate_phase1(individual, turb_loc_data=TURB_LOC_DATA_P1,
                     turb_atrbt_data=TURB_ATRBT_DATA_P1,
                     wind_rose_data=WIND_ROSE_DATA_P1):
     """
-    Avaliação EXATA de wind_farm_GA_16.py (evaluate_otimizado).
+    Avaliação da Fase 1: calcula apenas AEP bruto (sem considerar cabeamento).
+    
+    Esta função é muito rápida porque não calcula cabeamento, permitindo muitas
+    avaliações e exploração intensa do espaço de layouts.
+    
+    Penalidades aplicadas:
+    - Turbinas fora do círculo: penalidade extrema (1e6 por turbina)
+    - Turbinas muito próximas (< N_DIAMETERS): penalidade extrema (1e6 por violação)
+    
+    Returns:
+        fitness: AEP bruto total (MWh) - penalidades
     """
     turb_coords_yaml, fname_turb, fname_wr = turb_loc_data
     turb_ci, turb_co, rated_ws, rated_pwr, turb_diam = turb_atrbt_data
@@ -561,9 +641,32 @@ def detectar_sobreposicao_cabos(paths, coords, min_distance=50.0, substation_idx
 
 def evaluate_phase2(individual):
     """
-    Fase 2: Avalia AEP líquido + Custo (com cabeamento completo).
+    Avaliação da Fase 2: calcula AEP líquido e Custo total (com cabeamento completo).
+    
+    Esta função é mais lenta que evaluate_phase1 porque calcula cabeamento completo,
+    mas permite otimização multiobjetivo considerando trade-offs reais.
+    
     Estrutura do indivíduo: [32 coords turbinas] + [1 n_grupos] + [2 coords subestação] = 35 variáveis
-    O número de grupos de cabeamento e a posição da subestação são extraídos do genoma e otimizados pelo AG.
+    
+    Processo de avaliação:
+    1. Extrai coordenadas, número de grupos e posição da subestação do genoma
+    2. Calcula AEP bruto (mesmo método da Fase 1)
+    3. Calcula cabeamento completo usando cabling_v3 (inclui perdas Joule)
+    4. Detecta violações (cruzamentos, múltiplas conexões, etc.)
+    5. Calcula AEP líquido = AEP bruto - perdas Joule - penalidades
+    6. Calcula Custo total = custo de cabeamento + penalidades
+    
+    Penalidades aplicadas:
+    - Turbinas fora do círculo
+    - Turbinas muito próximas
+    - Subestação fora do círculo
+    - Subestação muito próxima das turbinas
+    - Cruzamentos de cabos
+    - Múltiplas conexões na mesma turbina
+    - Ângulos muito fechados na subestação
+    
+    Returns:
+        (aep_liquido, custo_penalizado): Tupla com AEP líquido (MWh) e Custo total (USD)
     """
     try:
         n_coords = IND_SIZE * 2
@@ -657,35 +760,43 @@ toolbox_phase1.register("evaluate", evaluate_phase1)
 # Toolbox Fase 2 (Multi-objective)
 def mate_phase2(ind1, ind2):
     """
-    Crossover que trata coordenadas, número de grupos e posição da subestação separadamente.
-    Estrutura: [32 coords turbinas] + [1 n_grupos] + [2 coords subestação] = 35 variáveis
+    Crossover Blend para Fase 2: aplica Blend Crossover consistentemente para todas as variáveis.
+    
+    Estrutura do indivíduo: [32 coords turbinas] + [1 n_grupos] + [2 coords subestação] = 35 variáveis
+    
+    Estratégia de crossover:
+    1. Coordenadas das turbinas: Blend Crossover usando cxBlend do DEAP
+    2. Número de grupos: Blend Crossover manual (mesma fórmula, aplicada a um único gene)
+    3. Posição da subestação: Blend Crossover usando cxBlend do DEAP
+    
+    Blend Crossover: combina dois pais usando combinação linear controlada por alpha
+    - alpha=0.5: filhos ficam entre os pais (exploração moderada)
+    - gamma = (1 + 2*alpha) * random() - alpha: permite filhos além dos pais (exploração ampla)
+    
+    Args:
+        ind1, ind2: Dois indivíduos da Fase 2 a serem cruzados
+    
+    Returns:
+        ind1, ind2: Indivíduos modificados in-place (crossover em DEAP modifica in-place)
     """
     n_coords = IND_SIZE * 2
     
     # Crossover blend para coordenadas das turbinas
     tools.cxBlend(ind1[:n_coords], ind2[:n_coords], alpha=CROSSOVER_ALPHA_P2)
     
-    # Crossover aritmético para número de grupos (índice n_coords)
-    alpha = random.random()
-    temp = alpha * ind1[n_coords] + (1 - alpha) * ind2[n_coords]
-    ind2[n_coords] = alpha * ind2[n_coords] + (1 - alpha) * ind1[n_coords]
+    # Crossover blend para número de grupos (índice n_coords)
+    # Aplica blend manualmente para o gene único (mesma fórmula do cxBlend)
+    gamma = (1. + 2. * CROSSOVER_ALPHA_P2) * random.random() - CROSSOVER_ALPHA_P2
+    temp = (1. - gamma) * ind1[n_coords] + gamma * ind2[n_coords]
+    ind2[n_coords] = gamma * ind1[n_coords] + (1. - gamma) * ind2[n_coords]
     ind1[n_coords] = temp
     
     # Garante limites para número de grupos
     ind1[n_coords] = max(0.0, min(1.0, ind1[n_coords]))
     ind2[n_coords] = max(0.0, min(1.0, ind2[n_coords]))
     
-    # Crossover aritmético para posição da subestação (índices n_coords+1 e n_coords+2)
-    alpha_sub = random.random()
-    # X da subestação
-    temp_x = alpha_sub * ind1[n_coords + 1] + (1 - alpha_sub) * ind2[n_coords + 1]
-    ind2[n_coords + 1] = alpha_sub * ind2[n_coords + 1] + (1 - alpha_sub) * ind1[n_coords + 1]
-    ind1[n_coords + 1] = temp_x
-    
-    # Y da subestação
-    temp_y = alpha_sub * ind1[n_coords + 2] + (1 - alpha_sub) * ind2[n_coords + 2]
-    ind2[n_coords + 2] = alpha_sub * ind2[n_coords + 2] + (1 - alpha_sub) * ind1[n_coords + 2]
-    ind1[n_coords + 2] = temp_y
+    # Crossover blend para posição da subestação (índices n_coords+1 e n_coords+2)
+    tools.cxBlend(ind1[n_coords+1:n_coords+3], ind2[n_coords+1:n_coords+3], alpha=CROSSOVER_ALPHA_P2)
     
     return ind1, ind2
 
@@ -701,7 +812,22 @@ toolbox_phase2.register("evaluate", evaluate_phase2)
 def optimize_phase1(POP_SIZE, NGEN, CXPB, MUTPB):
     """
     Fase 1: Otimização de Layout (AEP Bruto apenas).
-    CÓDIGO COPIADO EXATAMENTE DE wind_farm_GA_16.py main()
+    
+    Esta fase é muito rápida porque não calcula cabeamento, permitindo:
+    - Muitas avaliações (10-50x mais rápido que Fase 2)
+    - Exploração intensa do espaço de layouts
+    - Encontrar configurações com alto AEP bruto
+    
+    Algoritmo: Algoritmo Genético single-objective com:
+    - Seleção por Torneio
+    - Blend Crossover
+    - Mutação Gaussiana
+    - Sistema adaptativo de mutação agressiva (quando detecta estagnação)
+    - Parada precoce (quando estagnado por muitas gerações)
+    
+    Returns:
+        best_layouts: Lista dos N_TOP_LAYOUTS melhores layouts encontrados
+        last_gen_phase1: Número da última geração executada
     """
     print("=" * 80)
     print("FASE 1: OTIMIZAÇÃO DE LAYOUT (AEP BRUTO)")
@@ -844,10 +970,34 @@ def optimize_phase1(POP_SIZE, NGEN, CXPB, MUTPB):
 def optimize_phase2(best_layouts_phase1, POP_SIZE, NGEN, CXPB, MUTPB, start_gen_number=0):
     """
     Fase 2: Otimização Multiobjetivo (AEP Líquido + Custo).
-    Parte dos melhores layouts da Fase 1 e refina considerando cabeamento.
+    
+    Esta fase parte dos melhores layouts da Fase 1 e refina considerando:
+    - Cabeamento completo (cálculo de custo e perdas Joule)
+    - Posição otimizada da subestação offshore
+    - Número otimizado de grupos de cabeamento
+    - Trade-offs entre AEP líquido e Custo
+    
+    Algoritmo: NSGA-II (Non-dominated Sorting Genetic Algorithm II)
+    - Seleção: NSGA-II (mantém diversidade na frente de Pareto)
+    - Blend Crossover para todas as variáveis
+    - Mutação Gaussiana diferenciada por componente
+    - Sistema de detecção de estagnação multiobjetivo
+    
+    Inicialização da população:
+    - Usa os melhores layouts da Fase 1 como sementes
+    - Diversifica posições da subestação ao redor do centroide
+    - Adiciona perturbações para manter diversidade
     
     Args:
-        start_gen_number: Número da geração inicial (continua da Fase 1)
+        best_layouts_phase1: Lista dos melhores layouts da Fase 1
+        POP_SIZE: Tamanho da população
+        NGEN: Número máximo de gerações
+        CXPB: Probabilidade de crossover
+        MUTPB: Probabilidade de mutação
+        start_gen_number: Número da geração inicial (continua numeração da Fase 1)
+    
+    Returns:
+        hof: Hall of Fame com a frente de Pareto final (soluções não-dominadas)
     """
     print("\n" + "=" * 80)
     print("FASE 2: OTIMIZAÇÃO MULTIOBJETIVO (AEP LÍQUIDO + CUSTO)")
@@ -1263,7 +1413,19 @@ def optimize_phase2(best_layouts_phase1, POP_SIZE, NGEN, CXPB, MUTPB, start_gen_
     return hof
 
 def save_results(hof_final):
-    """Salva os resultados da Fase 2."""
+    """
+    Salva os resultados da Fase 2: frente de Pareto completa.
+    
+    Para cada solução na frente de Pareto:
+    - Salva coordenadas das turbinas
+    - Salva número de grupos de cabeamento
+    - Salva posição da subestação
+    - Recalcula perdas Joule para consistência
+    
+    Gera:
+    - Arquivos individuais: solution_N_coords.txt (uma por solução)
+    - Arquivo CSV: pareto_summary.csv (resumo de todas as soluções)
+    """
     output_dir = "pareto_front_results"
     os.makedirs(output_dir, exist_ok=True)
     
@@ -1331,10 +1493,29 @@ def save_results(hof_final):
     print(f"Resumo salvo em: {csv_path}")
 
 def main():
-    random.seed(42)
-    start_time = time.time()
+    """
+    Função principal: executa a estratégia híbrida em duas fases.
     
-    # Parâmetros já definidos no início do arquivo
+    Fluxo de execução:
+    1. Fase 1: Otimização rápida de layout (AEP bruto apenas)
+       - Explora intensamente o espaço de layouts
+       - Encontra configurações com alto AEP bruto
+       - Seleciona os N_TOP_LAYOUTS melhores layouts
+    
+    2. Fase 2: Otimização multiobjetivo (AEP líquido + Custo)
+       - Parte dos melhores layouts da Fase 1
+       - Refina considerando cabeamento completo
+       - Encontra a frente de Pareto otimizando trade-offs
+    
+    3. Salva resultados: frente de Pareto completa em arquivos
+    
+    Vantagens da estratégia híbrida:
+    - Fase 1: 10-50x mais rápida (sem cálculo de cabeamento)
+    - Fase 2: Parte de soluções boas, foca em refinamento
+    - Resultado: Melhor qualidade de soluções em menos tempo total
+    """
+    random.seed(42)  # Semente fixa para reprodutibilidade
+    start_time = time.time()
     
     print("=" * 80)
     print("ESTRATÉGIA HÍBRIDA EM DUAS FASES")
@@ -1342,13 +1523,14 @@ def main():
     print("Fase 2: Otimização Multiobjetivo (AEP Líquido + Custo) - Refinamento")
     print("=" * 80)
     
-    # Fase 1: Otimização de Layout
+    # Fase 1: Otimização de Layout (rápida, sem cabeamento)
     best_layouts, last_gen_phase1 = optimize_phase1(POP_SIZE_P1, NGEN_P1, CXPB_P1, MUTPB_P1)
     
     # Fase 2: Otimização Multiobjetivo (continua numeração da Fase 1)
+    # Usa os melhores layouts da Fase 1 como ponto de partida
     hof_final = optimize_phase2(best_layouts, POP_SIZE_P2, NGEN_P2, CXPB_P2, MUTPB_P2, start_gen_number=last_gen_phase1)
     
-    # Salva resultados
+    # Salva resultados: frente de Pareto completa
     save_results(hof_final)
     
     total_time = time.time() - start_time
