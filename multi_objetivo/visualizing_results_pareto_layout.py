@@ -30,8 +30,8 @@ from multi_objetivo.cabling_v3 import analisar_layout_completo
 
 CIRCLE_RADIUS = 5000  # Raio do círculo de restrição (metros)
 IND_SIZE = 16     # Número de turbinas
-EVOLUTION_DIR_PHASE1 = "pareto_front_results/evolution_phase1"  # Diretório Fase 1
-EVOLUTION_DIR_PHASE2 = "pareto_front_results/evolution"        # Diretório Fase 2
+EVOLUTION_DIR_PHASE1 = "TESTE/TESTE_16_PARA_ARTIGO/pareto_front_results/evolution_phase1"  # Diretório Fase 1
+EVOLUTION_DIR_PHASE2 = "TESTE/TESTE_16_PARA_ARTIGO/pareto_front_results/evolution"        # Diretório Fase 2
 SUBSTATION_CONTINENT = np.array([[-1.0, -1350.0]])  # Posição de referência (não usado na Fase 2)
 
 # Tamanhos para visualização (proporcionais à escala)
@@ -39,6 +39,23 @@ TURBINE_MARKER_SIZE = 40  # Tamanho do marcador das turbinas (ajuste para propor
 TURBINE_EDGE_WIDTH = 1.0  # Largura da borda das turbinas
 SUBSTATION_MARKER_SIZE = 200  # Tamanho do marcador da subestação (estrela)
 CABLE_LINEWIDTH = 1.0  # Espessura das linhas de cabeamento (reduzida para melhor visualização)
+
+# ============================
+# CONFIGURAÇÕES DE FONTES - MODIFIQUE AQUI PARA AJUSTAR TAMANHOS
+# ============================
+# Tamanhos de fonte para diferentes elementos dos gráficos
+FONT_SIZE_BASE = 13  # Tamanho base de fonte (usado em plt.rcParams)
+FONT_SIZE_TITLE_MAIN = 22  # Título principal da figura (suptitle)
+FONT_SIZE_TITLE_PLOT = 20  # Título de gráficos individuais
+FONT_SIZE_TITLE_SUBPLOT = 16  # Título de subplots
+FONT_SIZE_LABEL_AXIS = 14  # Labels dos eixos (X, Y)
+FONT_SIZE_LABEL_AXIS_SMALL = 13  # Labels dos eixos em subplots menores
+FONT_SIZE_LEGEND = 13  # Tamanho da legenda principal
+FONT_SIZE_LEGEND_SMALL = 12  # Tamanho da legenda em subplots
+FONT_SIZE_ANNOTATION_TURBINE = 11  # Anotações de turbinas (T0, T1, etc.)
+FONT_SIZE_ANNOTATION_SUBSTATION = 12  # Anotação da subestação (SUB)
+FONT_SIZE_TICK = 14  # Tamanho dos ticks dos eixos
+FONT_SIZE_WATERMARK = 24  # Tamanho da marca d'água (Phase 1/Phase 2)
 
 # ============================
 # FUNÇÕES DE ANIMAÇÃO
@@ -195,14 +212,14 @@ def create_evolution_animation(project_root):
     
     # Configura figura
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 8))
-    fig.suptitle('Genetic Algorithm Evolution', fontsize=16, fontweight='bold')
+    fig.suptitle('Genetic Algorithm Evolution', fontsize=FONT_SIZE_TITLE_MAIN, fontweight='bold')
     
     # Configuração do gráfico de layout
     ax1.set_xlim(-1.2 * CIRCLE_RADIUS, 1.2 * CIRCLE_RADIUS)
     ax1.set_ylim(-1.2 * CIRCLE_RADIUS, 1.2 * CIRCLE_RADIUS)
     ax1.set_aspect('equal')
-    ax1.set_xlabel('X (m)', fontsize=12)
-    ax1.set_ylabel('Y (m)', fontsize=12)
+    ax1.set_xlabel('X (m)', fontsize=FONT_SIZE_LABEL_AXIS)
+    ax1.set_ylabel('Y (m)', fontsize=FONT_SIZE_LABEL_AXIS)
     ax1.grid(True, linestyle='--', alpha=0.6)
     
     # Círculo de restrição
@@ -211,15 +228,15 @@ def create_evolution_animation(project_root):
     ax1.add_patch(circle)
     
     # Configuração do gráfico de métricas
-    ax2.set_xlabel('Generation', fontsize=12)
-    ax2.set_ylabel('Value', fontsize=12)
+    ax2.set_xlabel('Generation', fontsize=FONT_SIZE_LABEL_AXIS)
+    ax2.set_ylabel('Value', fontsize=FONT_SIZE_LABEL_AXIS)
     ax2.grid(True, linestyle='--', alpha=0.6)
-    ax2.set_title('Metrics Evolution', fontsize=14)
+    ax2.set_title('Metrics Evolution', fontsize=FONT_SIZE_TITLE_PLOT)
     
     # Inicializa elementos
     scatter = ax1.scatter([], [], s=TURBINE_MARKER_SIZE, c='red', edgecolors='black', 
                           linewidths=TURBINE_EDGE_WIDTH, zorder=5, label='Turbines')
-    title_text = ax1.set_title('', fontsize=14, fontweight='bold')
+    title_text = ax1.set_title('', fontsize=FONT_SIZE_TITLE_PLOT, fontweight='bold')
     
     # Lista para armazenar linhas de cabeamento e marcadores de subestação
     cabling_lines_container = []
@@ -230,7 +247,7 @@ def create_evolution_animation(project_root):
     
     # Cria eixos secundários para custo
     ax2_twin = ax2.twinx()
-    ax2_twin.set_ylabel('Cost (USD)', fontsize=12, color='r')
+    ax2_twin.set_ylabel('Cost (USD)', fontsize=FONT_SIZE_LABEL_AXIS, color='r')
     ax2_twin.tick_params(axis='y', labelcolor='r')
     
     # Linha de custo no eixo secundário
@@ -361,13 +378,13 @@ def create_evolution_animation(project_root):
             if ax1.get_legend() is not None:
                 ax1.get_legend().remove()
             # Cria nova legenda com turbinas e subestação
-            ax1.legend(loc='upper right', fontsize=9)
+            ax1.legend(loc='upper right', fontsize=FONT_SIZE_LEGEND)
         elif phase == 1:
             # Remove legenda antiga se existir
             if ax1.get_legend() is not None:
                 ax1.get_legend().remove()
             # Cria legenda apenas com turbinas
-            ax1.legend(loc='upper right', fontsize=9)
+            ax1.legend(loc='upper right', fontsize=FONT_SIZE_LEGEND)
         
         return scatter, title_text, line_aep, line_cost
     
@@ -385,12 +402,12 @@ def create_evolution_animation(project_root):
 # Configurações para qualidade de publicação ACM
 plt.rcParams.update({
     "font.family": "serif",
-    "font.size": 11,
-    "axes.titlesize": 12,
-    "axes.labelsize": 11,
-    "legend.fontsize": 9,
-    "xtick.labelsize": 10,
-    "ytick.labelsize": 10,
+    "font.size": FONT_SIZE_BASE,
+    "axes.titlesize": FONT_SIZE_TITLE_PLOT,
+    "axes.labelsize": FONT_SIZE_LABEL_AXIS,
+    "legend.fontsize": FONT_SIZE_LEGEND,
+    "xtick.labelsize": FONT_SIZE_TICK,
+    "ytick.labelsize": FONT_SIZE_TICK,
     "axes.linewidth": 0.8,
     "figure.dpi": 300,  # Alta resolução para publicação
     "savefig.dpi": 300,  # DPI para salvamento
@@ -603,7 +620,7 @@ def plot_layout_with_cabling(coords, n_grupos, substation_pos, title, aep_gwh, c
         ax.annotate(f'T{i}', 
                    (coords[i, 0], coords[i, 1]),
                    xytext=(5, 5), textcoords='offset points',
-                   fontsize=9, fontweight='bold',
+                   fontsize=FONT_SIZE_ANNOTATION_TURBINE, fontweight='bold',
                    bbox=dict(boxstyle='round,pad=0.3', facecolor='white', 
                            edgecolor='black', alpha=0.7),
                    zorder=7)
@@ -617,7 +634,7 @@ def plot_layout_with_cabling(coords, n_grupos, substation_pos, title, aep_gwh, c
         ax.annotate('SUB', 
                    (substation_pos[0], substation_pos[1]),
                    xytext=(5, 5), textcoords='offset points',
-                   fontsize=10, fontweight='bold',
+                   fontsize=FONT_SIZE_ANNOTATION_SUBSTATION, fontweight='bold',
                    bbox=dict(boxstyle='round,pad=0.3', facecolor='gold', 
                            edgecolor='black', alpha=0.8),
                    zorder=7)
@@ -625,17 +642,17 @@ def plot_layout_with_cabling(coords, n_grupos, substation_pos, title, aep_gwh, c
     ax.set_xlim(-1.2 * CIRCLE_RADIUS, 1.2 * CIRCLE_RADIUS)
     ax.set_ylim(-1.2 * CIRCLE_RADIUS, 1.2 * CIRCLE_RADIUS)
     ax.set_aspect('equal')
-    ax.set_xlabel('X (m)', fontsize=12, fontweight='bold')
-    ax.set_ylabel('Y (m)', fontsize=12, fontweight='bold')
+    ax.set_xlabel('X (m)', fontsize=FONT_SIZE_LABEL_AXIS, fontweight='bold')
+    ax.set_ylabel('Y (m)', fontsize=FONT_SIZE_LABEL_AXIS, fontweight='bold')
     ax.grid(True, linestyle='--', alpha=0.3, linewidth=0.5)
     
     ax.set_title(
         f'{title}\n'
         f'AEP: {aep_gwh:.2f} GWh | Cost: ${cost_recalculated_kusd:.0f}k USD | Groups: {n_grupos_to_use}\n'
         f'Losses: {losses_gwh:.2f} GWh | Cable: {secao_cabo_mm2:.0f} mm² | Length: {comprimento_total_km:.2f} km',
-        fontsize=14, fontweight='bold'
+        fontsize=FONT_SIZE_TITLE_PLOT, fontweight='bold'
     )
-    ax.legend(loc='upper right', fontsize=9, ncol=2, frameon=True)
+    ax.legend(loc='upper right', fontsize=FONT_SIZE_LEGEND, ncol=2, frameon=True)
     
     plt.tight_layout()
     # Salva em múltiplos formatos
@@ -758,11 +775,11 @@ ax.scatter(
 )
 
 # Configurações do gráfico
-ax.set_xlabel("Total Cabling Cost (Thousands USD)", fontsize=12, fontweight='bold')
-ax.set_ylabel("Net AEP (GWh)", fontsize=12, fontweight='bold')
-ax.set_title("Pareto Front - Phase 2: Net AEP vs. Cabling Cost", fontsize=14, fontweight="bold")
+ax.set_xlabel("Total Cabling Cost (Thousands USD)", fontsize=FONT_SIZE_LABEL_AXIS, fontweight='bold')
+ax.set_ylabel("Net AEP (GWh)", fontsize=FONT_SIZE_LABEL_AXIS, fontweight='bold')
+ax.set_title("Pareto Front - Phase 2: Net AEP vs. Cabling Cost", fontsize=FONT_SIZE_TITLE_PLOT, fontweight="bold")
 ax.grid(True, linestyle="--", alpha=0.3, linewidth=0.8)
-ax.legend(frameon=True, loc="best", fontsize=10, framealpha=0.9)
+ax.legend(frameon=True, loc="best", fontsize=FONT_SIZE_LEGEND, framealpha=0.9)
 
 # Melhora a aparência geral
 ax.spines['top'].set_visible(False)
@@ -897,7 +914,7 @@ try:
             ax_initial.annotate(f'T{i}', 
                               (coords_initial[i, 0], coords_initial[i, 1]),
                               xytext=(5, 5), textcoords='offset points',
-                              fontsize=9, fontweight='bold',
+                              fontsize=FONT_SIZE_ANNOTATION_TURBINE, fontweight='bold',
                               bbox=dict(boxstyle='round,pad=0.3', facecolor='white', 
                                       edgecolor='black', alpha=0.7),
                               zorder=7)
@@ -905,16 +922,16 @@ try:
         ax_initial.set_xlim(-1.2 * CIRCLE_RADIUS, 1.2 * CIRCLE_RADIUS)
         ax_initial.set_ylim(-1.2 * CIRCLE_RADIUS, 1.2 * CIRCLE_RADIUS)
         ax_initial.set_aspect('equal')
-        ax_initial.set_xlabel('X (m)', fontsize=12, fontweight='bold')
-        ax_initial.set_ylabel('Y (m)', fontsize=12, fontweight='bold')
+        ax_initial.set_xlabel('X (m)', fontsize=FONT_SIZE_LABEL_AXIS, fontweight='bold')
+        ax_initial.set_ylabel('Y (m)', fontsize=FONT_SIZE_LABEL_AXIS, fontweight='bold')
         ax_initial.grid(True, linestyle='--', alpha=0.3, linewidth=0.5)
         
         ax_initial.set_title(
             f'Initial Layout - Phase 1 (Generation 0)\n'
             f'AEP: {aep_initial_gwh:.2f} GWh | Turbines: {IND_SIZE}',
-            fontsize=14, fontweight='bold'
+            fontsize=FONT_SIZE_TITLE_PLOT, fontweight='bold'
         )
-        ax_initial.legend(loc='upper right', fontsize=9, frameon=True)
+        ax_initial.legend(loc='upper right', fontsize=FONT_SIZE_LEGEND, frameon=True)
         
         plt.tight_layout()
         # Salva em múltiplos formatos (alta qualidade, Type 42 fonts)
@@ -991,7 +1008,7 @@ try:
                 ax_best_p1.annotate(f'T{i}', 
                                   (coords_best_p1[i, 0], coords_best_p1[i, 1]),
                                   xytext=(5, 5), textcoords='offset points',
-                                  fontsize=9, fontweight='bold',
+                                  fontsize=FONT_SIZE_ANNOTATION_TURBINE, fontweight='bold',
                                   bbox=dict(boxstyle='round,pad=0.3', facecolor='white', 
                                           edgecolor='black', alpha=0.7),
                                   zorder=7)
@@ -999,16 +1016,16 @@ try:
             ax_best_p1.set_xlim(-1.2 * CIRCLE_RADIUS, 1.2 * CIRCLE_RADIUS)
             ax_best_p1.set_ylim(-1.2 * CIRCLE_RADIUS, 1.2 * CIRCLE_RADIUS)
             ax_best_p1.set_aspect('equal')
-            ax_best_p1.set_xlabel('X (m)', fontsize=12, fontweight='bold')
-            ax_best_p1.set_ylabel('Y (m)', fontsize=12, fontweight='bold')
+            ax_best_p1.set_xlabel('X (m)', fontsize=FONT_SIZE_LABEL_AXIS, fontweight='bold')
+            ax_best_p1.set_ylabel('Y (m)', fontsize=FONT_SIZE_LABEL_AXIS, fontweight='bold')
             ax_best_p1.grid(True, linestyle='--', alpha=0.3, linewidth=0.5)
             
             ax_best_p1.set_title(
                 f'Best Layout - Phase 1 (Generation {gen_num})\n'
                 f'AEP: {aep_best_p1_gwh:.2f} GWh | Turbines: {IND_SIZE}',
-                fontsize=14, fontweight='bold'
+                fontsize=FONT_SIZE_TITLE_PLOT, fontweight='bold'
             )
-            ax_best_p1.legend(loc='upper right', fontsize=9, frameon=True)
+            ax_best_p1.legend(loc='upper right', fontsize=FONT_SIZE_LEGEND, frameon=True)
             
             plt.tight_layout()
             # Salva em múltiplos formatos (alta qualidade, Type 42 fonts)
@@ -1129,15 +1146,15 @@ def plot_comparative_layouts_1x3(df, idx_min_cost, idx_knee, idx_max_aep,
             ax.set_xlim(-1.2 * CIRCLE_RADIUS, 1.2 * CIRCLE_RADIUS)
             ax.set_ylim(-1.2 * CIRCLE_RADIUS, 1.2 * CIRCLE_RADIUS)
             ax.set_aspect('equal')
-            ax.set_xlabel('X (m)', fontsize=11, fontweight='bold')
-            ax.set_ylabel('Y (m)', fontsize=11, fontweight='bold')
+            ax.set_xlabel('X (m)', fontsize=FONT_SIZE_LABEL_AXIS_SMALL, fontweight='bold')
+            ax.set_ylabel('Y (m)', fontsize=FONT_SIZE_LABEL_AXIS_SMALL, fontweight='bold')
             ax.grid(True, linestyle='--', alpha=0.3, linewidth=0.5)
             
             ax.set_title(
                 f'{title_suffix}\n'
                 f'AEP: {aep_gwh:.2f} GWh | Cost: ${cost_recalculated_kusd:.0f}k USD\n'
                 f'Cable: {secao_cabo_mm2:.0f} mm² | Length: {comprimento_total_km:.2f} km',
-                fontsize=12, fontweight='bold'
+                fontsize=FONT_SIZE_TITLE_SUBPLOT, fontweight='bold'
             )
             
         except Exception as e:
@@ -1271,7 +1288,7 @@ def plot_metrics_evolution(project_root):
         phase1_center_x = (phase1_start + phase1_end) / 2.0
         phase1_center_y = (aep_y_min + aep_y_max) / 2.0
         ax1.text(phase1_center_x, phase1_center_y, 'Phase 1\nMono-objective',
-                ha='center', va='center', fontsize=24, fontweight='bold',
+                ha='center', va='center', fontsize=FONT_SIZE_WATERMARK, fontweight='bold',
                 alpha=0.08, rotation=0, zorder=1,
                 bbox=dict(boxstyle='round', facecolor='white', edgecolor='none', alpha=0.3))
     
@@ -1280,7 +1297,7 @@ def plot_metrics_evolution(project_root):
         phase2_center_x = (phase2_start + phase2_end) / 2.0
         phase2_center_y = (aep_y_min + aep_y_max) / 2.0
         ax1.text(phase2_center_x, phase2_center_y, 'Phase 2\nMulti-objective',
-                ha='center', va='center', fontsize=24, fontweight='bold',
+                ha='center', va='center', fontsize=FONT_SIZE_WATERMARK, fontweight='bold',
                 alpha=0.08, rotation=0, zorder=1,
                 bbox=dict(boxstyle='round', facecolor='white', edgecolor='none', alpha=0.3))
     
@@ -1289,7 +1306,7 @@ def plot_metrics_evolution(project_root):
         phase1_center_x = (phase1_start + phase1_end) / 2.0
         phase1_center_y = (cost_y_min + cost_y_max) / 2.0
         ax2.text(phase1_center_x, phase1_center_y, 'Phase 1\nMono-objective',
-                ha='center', va='center', fontsize=24, fontweight='bold',
+                ha='center', va='center', fontsize=FONT_SIZE_WATERMARK, fontweight='bold',
                 alpha=0.08, rotation=0, zorder=1,
                 bbox=dict(boxstyle='round', facecolor='white', edgecolor='none', alpha=0.3))
     
@@ -1298,7 +1315,7 @@ def plot_metrics_evolution(project_root):
         phase2_center_x = (phase2_start + phase2_end) / 2.0
         phase2_center_y = (cost_y_min + cost_y_max) / 2.0
         ax2.text(phase2_center_x, phase2_center_y, 'Phase 2\nMulti-objective',
-                ha='center', va='center', fontsize=24, fontweight='bold',
+                ha='center', va='center', fontsize=FONT_SIZE_WATERMARK, fontweight='bold',
                 alpha=0.08, rotation=0, zorder=1,
                 bbox=dict(boxstyle='round', facecolor='white', edgecolor='none', alpha=0.3))
     
@@ -1310,27 +1327,27 @@ def plot_metrics_evolution(project_root):
         ax1.plot(gens_p2, aeps_p2, 'g-s', linewidth=2, markersize=4, 
                 label='Phase 2: Net AEP', alpha=0.7, zorder=2)
     
-    ax1.set_xlabel('Generation', fontsize=12, fontweight='bold')
-    ax1.set_ylabel('AEP (GWh)', fontsize=12, fontweight='bold')
-    ax1.set_title('AEP Evolution Across Generations', fontsize=14, fontweight='bold')
+    ax1.set_xlabel('Generation', fontsize=FONT_SIZE_LABEL_AXIS, fontweight='bold')
+    ax1.set_ylabel('AEP (GWh)', fontsize=FONT_SIZE_LABEL_AXIS, fontweight='bold')
+    ax1.set_title('AEP Evolution Across Generations', fontsize=FONT_SIZE_TITLE_PLOT, fontweight='bold')
     ax1.grid(True, linestyle='--', alpha=0.3, zorder=1)
-    ax1.legend(loc='best', fontsize=10)
+    ax1.legend(loc='best', fontsize=FONT_SIZE_LEGEND)
     ax1.set_xlim(left=x_min, right=x_max)  # Força começar em 0
     
     # Gráfico de Custo (começa na gen 0 junto com Fase 1, mas só mostra valores na Fase 2)
     if len(gens_cost) > 0:
         ax2.plot(gens_cost, costs_all, 'r-^', linewidth=2, markersize=4, 
                 label='Phase 2: Cabling Cost', alpha=0.7, zorder=2)
-        ax2.set_xlabel('Generation', fontsize=12, fontweight='bold')
-        ax2.set_ylabel('Cost (Thousands USD)', fontsize=12, fontweight='bold')
-        ax2.set_title('Cabling Cost Evolution (Phase 2)', fontsize=14, fontweight='bold')
+        ax2.set_xlabel('Generation', fontsize=FONT_SIZE_LABEL_AXIS, fontweight='bold')
+        ax2.set_ylabel('Cost (Thousands USD)', fontsize=FONT_SIZE_LABEL_AXIS, fontweight='bold')
+        ax2.set_title('Cabling Cost Evolution (Phase 2)', fontsize=FONT_SIZE_TITLE_PLOT, fontweight='bold')
         ax2.grid(True, linestyle='--', alpha=0.3, zorder=1)
-        ax2.legend(loc='best', fontsize=10)
+        ax2.legend(loc='best', fontsize=FONT_SIZE_LEGEND)
         ax2.set_xlim(left=x_min, right=x_max)  # Força começar em 0 e alinha com gráfico de cima
     else:
         ax2.text(0.5, 0.5, 'No Phase 2 data available', 
-                ha='center', va='center', transform=ax2.transAxes, fontsize=12)
-        ax2.set_title('Cabling Cost Evolution (Phase 2)', fontsize=14, fontweight='bold')
+                ha='center', va='center', transform=ax2.transAxes, fontsize=FONT_SIZE_LABEL_AXIS)
+        ax2.set_title('Cabling Cost Evolution (Phase 2)', fontsize=FONT_SIZE_TITLE_PLOT, fontweight='bold')
     
     plt.tight_layout()
     output_path = os.path.join(project_root, "metrics_evolution.png")
@@ -1375,11 +1392,11 @@ def plot_phase1_vs_phase2_comparison(project_root, df, idx_knee, results_dir_nam
             ax.set_xlim(-1.2 * CIRCLE_RADIUS, 1.2 * CIRCLE_RADIUS)
             ax.set_ylim(-1.2 * CIRCLE_RADIUS, 1.2 * CIRCLE_RADIUS)
             ax.set_aspect('equal')
-            ax.set_xlabel('X (m)', fontsize=11, fontweight='bold')
-            ax.set_ylabel('Y (m)', fontsize=11, fontweight='bold')
+            ax.set_xlabel('X (m)', fontsize=FONT_SIZE_LABEL_AXIS_SMALL, fontweight='bold')
+            ax.set_ylabel('Y (m)', fontsize=FONT_SIZE_LABEL_AXIS_SMALL, fontweight='bold')
             ax.grid(True, linestyle='--', alpha=0.3, linewidth=0.5)
             ax.set_title(f'Phase 1 - Initial\nAEP: {aep_initial_gwh:.2f} GWh', 
-                        fontsize=12, fontweight='bold')
+                        fontsize=FONT_SIZE_TITLE_SUBPLOT, fontweight='bold')
         except Exception as e:
             axes[0].text(0.5, 0.5, f'Error loading\ninitial layout', 
                         ha='center', va='center', transform=axes[0].transAxes)
@@ -1412,11 +1429,11 @@ def plot_phase1_vs_phase2_comparison(project_root, df, idx_knee, results_dir_nam
                 ax.set_xlim(-1.2 * CIRCLE_RADIUS, 1.2 * CIRCLE_RADIUS)
                 ax.set_ylim(-1.2 * CIRCLE_RADIUS, 1.2 * CIRCLE_RADIUS)
                 ax.set_aspect('equal')
-                ax.set_xlabel('X (m)', fontsize=11, fontweight='bold')
-                ax.set_ylabel('Y (m)', fontsize=11, fontweight='bold')
+                ax.set_xlabel('X (m)', fontsize=FONT_SIZE_LABEL_AXIS_SMALL, fontweight='bold')
+                ax.set_ylabel('Y (m)', fontsize=FONT_SIZE_LABEL_AXIS_SMALL, fontweight='bold')
                 ax.grid(True, linestyle='--', alpha=0.3, linewidth=0.5)
                 ax.set_title(f'Phase 1 - Best\nAEP: {aep_best_p1_gwh:.2f} GWh', 
-                            fontsize=12, fontweight='bold')
+                            fontsize=FONT_SIZE_TITLE_SUBPLOT, fontweight='bold')
             except Exception as e:
                 axes[1].text(0.5, 0.5, f'Error loading\nbest Phase 1', 
                             ha='center', va='center', transform=axes[1].transAxes)
@@ -1496,13 +1513,13 @@ def plot_phase1_vs_phase2_comparison(project_root, df, idx_knee, results_dir_nam
         ax.set_xlim(-1.2 * CIRCLE_RADIUS, 1.2 * CIRCLE_RADIUS)
         ax.set_ylim(-1.2 * CIRCLE_RADIUS, 1.2 * CIRCLE_RADIUS)
         ax.set_aspect('equal')
-        ax.set_xlabel('X (m)', fontsize=11, fontweight='bold')
-        ax.set_ylabel('Y (m)', fontsize=11, fontweight='bold')
+        ax.set_xlabel('X (m)', fontsize=FONT_SIZE_LABEL_AXIS_SMALL, fontweight='bold')
+        ax.set_ylabel('Y (m)', fontsize=FONT_SIZE_LABEL_AXIS_SMALL, fontweight='bold')
         ax.grid(True, linestyle='--', alpha=0.3, linewidth=0.5)
         ax.set_title(f'Phase 2 - Knee Point\n'
                     f'AEP: {knee_aep_gwh:.2f} GWh | Cost: ${cost_recalculated_kusd:.0f}k USD\n'
                     f'Cable: {secao_cabo_mm2:.0f} mm² | Length: {comprimento_total_km:.2f} km', 
-                    fontsize=12, fontweight='bold')
+                    fontsize=FONT_SIZE_TITLE_SUBPLOT, fontweight='bold')
     except Exception as e:
         axes[2].text(0.5, 0.5, f'Error loading\nknee point', 
                     ha='center', va='center', transform=axes[2].transAxes)

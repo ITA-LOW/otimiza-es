@@ -80,7 +80,7 @@ N_GRUPOS_INICIAL = MIN_GRUPOS  # Valor inicial do gene de agrupamento (normaliza
 # com alto AEP bruto, que servirão como ponto de partida para a Fase 2
 
 POP_SIZE_P1 = 300  # Tamanho da população (número de indivíduos por geração)
-NGEN_P1 = 1500  # Número máximo de gerações
+NGEN_P1 = 500  # Número máximo de gerações
 CXPB_P1 = 0.95  # Probabilidade de crossover (95% dos pares fazem crossover)
 MUTPB_P1 = 0.7  # Probabilidade de mutação (70% dos indivíduos são mutados)
 INDPB_P1 = 0.4  # Probabilidade de mutar cada gene individualmente (40% dos genes)
@@ -119,7 +119,7 @@ N_TOP_LAYOUTS = 30  # Número de melhores layouts da Fase 1 usados como sementes
 # e encontrar a frente de Pareto otimizando simultaneamente AEP e Custo
 
 POP_SIZE_P2 = 300  # Tamanho da população (mantém mesmo tamanho da Fase 1)
-NGEN_P2 = 1500  # Número máximo de gerações
+NGEN_P2 = 1000  # Número máximo de gerações
 CXPB_P2 = CXPB_P1  # Probabilidade de crossover (usa mesmo valor da Fase 1)
 MUTPB_P2 = MUTPB_P1  # Probabilidade de mutação (usa mesmo valor da Fase 1)
 INDPB_P2 = INDPB_P1  # Probabilidade de mutar cada gene individualmente

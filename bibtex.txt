@@ -1,0 +1,312 @@
+% =============================================================================
+% STRINGS - JOURNALS (Definições únicas para evitar erros)
+% =============================================================================
+@String{IEEEAccess = "{IEEE} Access"}
+@String{RenEnergy  = "Renewable Energy"}
+@String{AppEnergy  = "Applied Energy"}
+@String{EJOR       = "European Journal of Operational Research"}
+@String{TSTE       = "{IEEE} Transactions on Sustainable Energy"}
+@String{ESWA       = "Expert Systems with Applications"}
+
+% =============================================================================
+% REFERÊNCIAS
+% =============================================================================
+
+@Article{Silva2025Layout,
+  author        = "Italo Firmino da Silva and Telles Brunelli Lazzarin and Lenon Schmitz and Alison R. Panisson",
+  title         = "Genetic Algorithm-Based Optimization Framework for Offshore Wind Farm Layout Design",
+  journal       = IEEEAccess,
+  volume        = "13",
+  year          = "2025",
+  pages         = "170081--170094",
+  doi           = "10.1109/ACCESS.2025.3614516"
+}
+
+@Article{Alencar2026Flexible,
+  author        = "Mauricio {Souza de Alencar} and Tuhfe G{\"o}cmen and Nicolaos A. Cutululis",
+  title         = "Flexible cable routing framework for wind farm collection system optimization",
+  journal       = EJOR,
+  volume        = "329",
+  number        = "10",
+  year          = "2026",
+  pages         = "1037--1051",
+  doi           = "10.1016/j.ejor.2025.07.069"
+}
+
+@Article{Deb2002NSGA2,
+  author        = "K. Deb and A. Pratap and S. Agarwal and T. Meyarivan",
+  title         = "A fast and elitist multiobjective genetic algorithm: {NSGA-II}",
+  journal       = "{IEEE} Transactions on Evolutionary Computation",
+  volume        = "6",
+  number        = "2",
+  year          = "2002",
+  pages         = "182--197"
+}
+
+@Techreport{Jensen1983Wake,
+  author        = "N. O. Jensen",
+  title         = "A note on wind generator interaction",
+  institution   = "Ris{\o} National Laboratory",
+  address       = "Roskilde, Denmark",
+  year          = "1983",
+  number        = "Ris{\o}-M-2411"
+}
+
+@Article{Bastankhah2016Gaussian,
+  author        = "M. Bastankhah and F. Port{\'e}-Agel",
+  title         = "Experimental and theoretical study of wind turbine wakes in yawed conditions",
+  journal       = "Journal of Fluid Mechanics",
+  volume        = "806",
+  year          = "2016",
+  pages         = "506--541",
+  doi           = "10.1017/jfm.2016.595"
+}
+
+@Article{Jin2025Integrated,
+  author        = "R. Jin and P. Hou and Y. Qi and others",
+  title         = "Joint planning of distribution and transmission system for offshore wind farms integrated with hydrogen production platforms",
+  journal       = AppEnergy,
+  volume        = "398",
+  year          = "2025",
+  doi           = "10.1016/j.apenergy.2025.126383"
+}
+
+@Inproceedings{Jiangyi2025Topology,
+  author        = "L. Jiangyi and H. Huo and Z. Qian",
+  title         = "Topology Optimization of Offshore Wind Farm Collection System Based on Priority Queue {Esau-Williams} Algorithm",
+  booktitle     = "Lecture Notes in Electrical Engineering",
+  volume        = "1397",
+  year          = "2025",
+  doi           = "10.1007/978-981-96-4059-1_26"
+}
+
+@Article{Machado2024Hybrid,
+  author        = "M. O. MacHado and I. F. D. C. Fernandes and others",
+  title         = "A hybrid multi-agent metaheuristic for the offshore wind farm cable routing problem",
+  journal       = ESWA,
+  volume        = "255",
+  year          = "2024",
+  doi           = "10.1016/j.eswa.2024.124668"
+}
+
+@Article{Ye2023Path,
+  author        = "J. Ye and G. Zhou and others",
+  title         = "Path Optimization of Submarine Cables for Offshore Wind Farm Considering Feeder Crossing Avoidance",
+  journal       = "Automation of Electric Power Systems",
+  volume        = "56",
+  year          = "2023"
+}
+
+@Article{Qureshi2023Hybrid,
+  author        = "T. A. Qureshi and V. Warudkar",
+  title         = "Wind farm layout optimization through optimal wind turbine placement using a hybrid PSO-GA",
+  journal       = "Env. Science and Pollution Research",
+  volume        = "30",
+  year          = "2023"
+}
+
+@Article{Jiang2025Review,
+  author        = "Z. Jiang and H. Li and others",
+  title         = "Review of Artificial Intelligence-Based Design Optimization of Wind Power Systems",
+  journal       = "Wind",
+  volume        = "5",
+  number        = "3",
+  year          = "2025"
+}
+
+@Misc{IRENA2024Costs,
+  author        = "{IRENA}",
+  title         = "Renewable Power Generation Costs in 2023",
+  year          = "2024",
+  note          = "International Renewable Energy Agency, Abu Dhabi"
+}
+
+@Misc{GWEC2024Global,
+  author        = "{GWEC}",
+  title         = "Global Wind Report 2024",
+  year          = "2024",
+  note          = "Global Wind Energy Council"
+}
+
+@Article{Wang2019Integrated,
+  author        = "L. Wang and J. Wu and others",
+  title         = "An integration optimization method for power collection systems of offshore wind farms",
+  journal       = "Energies",
+  volume        = "12",
+  year          = "2019"
+}
+
+@Article{Tao2025TwoStage,
+  author        = "S. Tao and J. Yang and others",
+  title         = "A two-stage optimization model for floating offshore wind farm layout and control",
+  journal       = RenEnergy,
+  volume        = "253",
+  year          = "2025"
+}
+
+@inproceedings{Silva2025b,
+  author    = {Silva, Italo Firmino and Lazzarin, Telles B. and Schmitz, Lenon and Panisson, Alison R.},
+  title     = {Optimizing Wind Farm Project Assessments Using Genetic Algorithms},
+  year      = {2025},
+  isbn      = {9798400714641},
+  publisher = {Association for Computing Machinery},
+  address   = {New York, NY, USA},
+  url       = {https://doi.org/10.1145/3712255.3726546},
+  doi       = {10.1145/3712255.3726546},
+  booktitle = {Proceedings of the Genetic and Evolutionary Computation Conference Companion},
+  pages     = {811--814},
+  numpages  = {4},
+  keywords  = {Genetic Algorithms, Offshore Wind Farms, Optimization},
+  location  = {Malaga, Spain},
+  series    = {GECCO '25 Companion}
+}
+
+@book{LaValle2006,
+  author    = {Steven M. LaValle},
+  title     = {Planning Algorithms},
+  publisher = {Cambridge University Press},
+  year      = {2006},
+  isbn      = {9780521862059},
+  note      = {Provides the formal definition of Configuration Spaces for multi-body systems.}
+}
+
+@book{Haupt2004,
+  author    = {Randy L. Haupt and Sue Ellen Haupt},
+  title     = {Practical Genetic Algorithms},
+  edition   = {2nd},
+  publisher = {John Wiley \& Sons},
+  year      = {2004},
+  isbn      = {9780471455653},
+  note      = {Essential for justifying continuous-parameter encoding in hybrid optimization.}
+}
+
+@book{Nocedal2006,
+  author    = {Jorge Nocedal and Stephen J. Wright},
+  title     = {Numerical Optimization},
+  edition   = {2nd},
+  publisher = {Springer},
+  year      = {2006},
+  isbn      = {9780387303031},
+  note      = {Standard reference for defining optimization variables within R^n manifolds.}
+}
+
+@inproceedings{Baker2019Best,
+  author    = {Nicholas F. Baker and Andrew P. Stanley and Jared J. Thomas and Andrew Ning and Katherine Dykes},
+  title     = {Best practices for wake model and optimization algorithm selection in wind farm layout optimization},
+  booktitle = {AIAA Scitech 2019 Forum},
+  year      = {2019},
+  pages     = {0540},
+  doi       = {10.2514/6.2019-0540},
+  note      = {Defines the IEA Task 37 benchmark cases.}
+}
+
+@article{Nakhai2023Electrical,
+  title={Electrical Collection System Cost Modeling for Marine Renewable Energy Farms},
+  author={Nakhai, Moussa and others},
+  journal={Journal of Marine Science and Engineering},
+  volume={11},
+  number={7},
+  pages={1348},
+  year={2023}
+}
+
+@book{worzyk2009submarine,
+  title={Submarine power cables: design, installation, repair, environmental aspects},
+  author={Worzyk, Thomas},
+  year={2009},
+  publisher={Springer Science \& Business Media}
+}
+
+@article{Bastankhah2014Gaussian,
+  title={A new analytical model for wind-turbine wakes},
+  author={Bastankhah, Majid and Port{\'e}-Agel, Fernando},
+  journal={Renewable Energy},
+  volume={70},
+  pages={116--123},
+  year={2014},
+  publisher={Elsevier},
+  doi={10.1016/j.renene.2014.01.002}
+}
+
+@inproceedings{Katic1986Simple,
+  title={A simple model for cluster efficiency},
+  author={Katic, Ivan and H{\o}jstrup, J{\o}rgen and Jensen, Niels Otto},
+  booktitle={European Wind Energy Association Conference and Exhibition},
+  pages={407--410},
+  year={1986},
+  organization={A.D. Stephens}
+}
+
+@Article{Zheng2025NSGA2,
+  author        = "Z. Zheng and Z. Pan and Z. Yao and H. Tan and F. Wang and J. Xu",
+  title         = "Multi-parameter and multi-objective optimization of hydroforming loading paths: a study on instrument panel tube beam design based on {NSGA-II}",
+  journal       = "Journal of the Brazilian Society of Mechanical Sciences and Engineering",
+  volume        = "47",
+  year          = "2025",
+  doi           = "10.1007/s40430-025-05500-5"
+}
+
+@Article{Konatham2024NSGA2,
+  author        = "R. S. Konatham and R. Chele and H. K. Voruganti and S. S. Gautam",
+  title         = "Multi-objective shape optimization of fin using {IGA} and {NSGA-II}",
+  journal       = "Journal of the Brazilian Society of Mechanical Sciences and Engineering",
+  volume        = "46",
+  year          = "2024",
+  doi           = "10.1007/s40430-024-05230-0"
+}
+
+@Article{Jin2019PowerLoss,
+  author        = "R. Jin and P. Hou and G. Yang and Y. Qi and C. Chen and Z. Chen",
+  title         = "Cable routing optimization for offshore wind power plants via wind scenarios considering power loss cost model",
+  journal       = AppEnergy,
+  volume        = "254",
+  year          = "2019",
+  pages         = "113719",
+  doi           = "10.1016/j.apenergy.2019.113719"
+}
+
+@Inproceedings{Fischetti2015MILP,
+  author        = "M. Fischetti and J. Leth and A. B. Borchersen",
+  title         = "A Mixed-Integer Linear Programming approach to wind farm layout and inter-array cable routing",
+  booktitle     = "American Control Conference",
+  year          = "2015",
+  pages         = "7172266",
+  doi           = "10.1109/ACC.2015.7172266"
+}
+
+@Article{Moon2015Optimal,
+  author        = "W.-S. Moon and J.-N. Won and J.-S. Huh and A. Jo and J.-C. Kim",
+  title         = "Optimal design of power grid and location of offshore substation for offshore wind power plant",
+  journal       = "Journal of the Korean Institute of Electrical Engineers",
+  volume        = "64",
+  number        = "7",
+  year          = "2015",
+  pages         = "984",
+  doi           = "10.5370/KIEE.2015.64.7.984"
+}
+
+@Inproceedings{Yuan2025ACO,
+  author        = "S. Yuan and K. Tang",
+  title         = "Application of an Improved Ant Colony Optimization Algorithm to Wind-Farm Topology Design",
+  booktitle     = "IEEE International Conference on Signal Processing",
+  year          = "2025",
+  doi           = "10.1109/ICSP65755.2025.11086778"
+}
+
+@Article{He2025Topology,
+  author        = "J. He and L. Dong and M. Ge",
+  title         = "{TOPOLOGY OPTIMIZATION OF LARGE-SCALE OFFSHORE WIND FARM POWER COLLECTION SYSTEM}",
+  journal       = "Journal of Hydroelectric Engineering",
+  volume        = "46",
+  year          = "2025",
+  doi           = "10.19912/j.0254-0096.tynxb.2024-0245"
+}
+
+@Article{Shen2023Ring,
+  author        = "X. Shen and Q. Wu and H. Zhang and L. Wang",
+  title         = "Optimal Planning for Electrical Collector System of Offshore Wind Farm With Double-Sided Ring Topology",
+  journal       = TSTE,
+  volume        = "14",
+  year          = "2023",
+  doi           = "10.1109/TSTE.2023.3241357"
+}
