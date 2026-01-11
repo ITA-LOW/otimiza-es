@@ -1,6 +1,6 @@
 input_format_version: 0
-title: IEA Wind Task 37 Combined Case Study 36 Turbine Farm
-description: input file for the 36 turbine wind plant model for IEA Task 37 Combined Case Study
+title: IEA Wind Task 37 Combined Case Study 25 Turbine Farm
+description: input file for the 25 turbine wind plant model for IEA Task 37 Combined Case Study
              Template located at <https://github.com/IEAWindTask37/ontology/blob/develop/plant_energy_energy_convolution.yaml>
 
 definitions:
@@ -18,13 +18,11 @@ definitions:
     type: array
     items:
       xc: [0.00, 726.00, 363.00, -363.00, -726.00, -363.00, 363.00, 1143.15, 0.00, -1143.15,
-           -1143.15, -0.00, 1143.15, 1914.00, 957.00, -957.00, -1914.00, -957.00, 957.00, 2415.00,
-           2142.88, 1711.84, 510.27, -171.15, -839.88, -1945.48, -2300.37, -2484.64, -2484.64,
-           -2300.37, -1945.48, -839.88, -171.15, 510.27, 1711.84, 2142.88]
+           -1143.15, -0.00, 1143.15, 1914.00, 957.00, -957.00, -1914.00, -957.00, 957.00, 2317.09,
+           1773.42, 0.00, -1773.42, -2317.09, -2317.09]
       yc: [0.00, 0.00, 628.73, 628.73, 0.00, -628.73, -628.73, 660.00, 1320.00, 660.00, -660.00,
-           -1320.00, -660.00, 0.00, 1657.57, 1657.57, 0.00, -1657.57, -1657.57, 676.65, 1303.12,
-           1832.94, 2455.54, 2502.15, 2363.19, 1582.77, 999.19, 341.51, -341.51, -999.19, -1582.77,
-           -2363.19, -2502.15, -2455.54, -1832.94, -1303.12]
+           -1320.00, -660.00, 0.00, 1657.57, 1657.57, 0.00, -1657.57, -1657.57, 959.77, 1773.42,
+           2508.00, 1773.42, 959.77, -959.77]
     additionalItems: false
     description: an array of x-coordinates [x0, x1, ...] and y-coordinates [y0, y1, ...] of wind turbine positions in cartesian coordinates
     units: m          

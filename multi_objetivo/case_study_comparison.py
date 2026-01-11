@@ -60,8 +60,8 @@ import multi_objetivo.cabling_v3 as cabling_v3
 SEED = None  # Será definida no início da execução
 N_RUNS = 2  # Número de execuções (cada uma com seed diferente)
 POP_SIZE = 10  # Tamanho da população
-generations = 200
-NGEN_BASELINE = generations  # Número de gerações para Baseline
+generations = 500
+NGEN_BASELINE = 2*generations  # Número de gerações para Baseline
 NGEN_SEQUENTIAL_P1 = generations  # Gerações Fase 1 Sequential (igual ao wind_farm_GA_16.py)
 NGEN_SEQUENTIAL_P2 = generations  # Gerações Fase 2 Sequential (otimização de cabeamento)
 NGEN_PROPOSED_P1 = generations  # Gerações Fase 1 Proposed (igual ao Sequential Fase 1)
