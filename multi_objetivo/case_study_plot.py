@@ -950,16 +950,260 @@ def calculate_and_save_success_rates(df_summary, output_dir='.'):
     print("="*80)
     print(f"✓ Estatísticas de taxa de sucesso salvas em: {stats_file}")
 
+def plot_scalability_metrics(results_dirs, output_dir='.'):
+    """
+    Gera gráficos de escalabilidade comparando múltiplas escalas (16, 36, 64 turbinas).
+    Similar aos gráficos scalability_*.png.
+    
+    Args:
+        results_dirs: Lista de tuplas (scale, dir_path) ou dict {scale: dir_path}
+                     Ex: [('16', 'results_16'), ('36', 'results_36'), ('64', 'results_64')]
+        output_dir: Diretório de saída
+    """
+    if isinstance(results_dirs, dict):
+        scales_data = results_dirs
+    else:
+        scales_data = {scale: dir_path for scale, dir_path in results_dirs}
+    
+    if len(scales_data) == 0:
+        print("AVISO: Nenhum diretório fornecido para análise de escalabilidade")
+        return
+    
+    # Carrega dados de todas as escalas
+    dfs = {}
+    for scale_str, dir_path in scales_data.items():
+        summary_path = os.path.join(dir_path, 'summary_results.csv')
+        if os.path.exists(summary_path):
+            df = pd.read_csv(summary_path)
+            df['Scale'] = int(scale_str)
+            dfs[scale_str] = df
+        else:
+            print(f"AVISO: {summary_path} não encontrado, pulando escala {scale_str}")
+    
+    if len(dfs) == 0:
+        print("AVISO: Nenhum dado disponível para análise de escalabilidade")
+        return
+    
+    colors = {'Baseline': '#1f77b4', 'Proposed': '#2ca02c', 'Sequential': '#d62728'}
+    markers = {'Baseline': 'o', 'Proposed': 's', 'Sequential': '^'}
+    
+    # Métricas de escalabilidade
+    metrics = {
+        'net_aep': {
+            'col': 'Net_AEP_GWh',
+            'ylabel': 'Net AEP (GWh)',
+            'title': 'Net AEP Scalability'
+        },
+        'capex': {
+            'col': 'Total_Cost_USD',
+            'ylabel': 'CAPEX (USD)',
+            'title': 'CAPEX Scalability',
+            'scale': 1000,  # Converte para kUSD
+            'ylabel_scaled': 'CAPEX (kUSD)'
+        },
+        'execution_time': {
+            'col': 'Time_Total_s',
+            'ylabel': 'Execution Time (seconds)',
+            'title': 'Computational Efficiency Scalability',
+            'scale': 60,  # Converte para minutos
+            'ylabel_scaled': 'Execution Time (minutes)'
+        }
+    }
+    
+    scales = sorted([int(s) for s in dfs.keys()])
+    
+    for metric_key, metric_info in metrics.items():
+        fig, ax = plt.subplots(figsize=(10, 7))
+        
+        for method in ['Baseline', 'Proposed', 'Sequential']:
+            means = []
+            stds = []
+            valid_scales = []
+            
+            for scale in scales:
+                scale_str = str(scale)
+                if scale_str in dfs:
+                    df_scale = dfs[scale_str]
+                    data = df_scale[df_scale['Method'] == method]
+                    
+                    if len(data) > 0 and metric_info['col'] in data.columns:
+                        values = data[metric_info['col']].values
+                        # Aplica escala se necessário
+                        if 'scale' in metric_info:
+                            values = values / metric_info['scale']
+                        
+                        if len(values) > 0:
+                            means.append(np.mean(values))
+                            stds.append(np.std(values))
+                            valid_scales.append(scale)
+            
+            if len(means) > 0:
+                ax.errorbar(valid_scales, means, yerr=stds,
+                           label=method, color=colors[method],
+                           marker=markers[method],
+                           markersize=12, linewidth=3, capsize=8, capthick=2.5,
+                           elinewidth=2.5)
+        
+        ax.set_xlabel('Number of Turbines', fontsize=FONT_SIZE_LABEL_AXIS, fontweight='bold')
+        ylabel = metric_info.get('ylabel_scaled', metric_info['ylabel'])
+        ax.set_ylabel(ylabel, fontsize=FONT_SIZE_LABEL_AXIS, fontweight='bold')
+        ax.set_title(metric_info['title'], fontsize=FONT_SIZE_TITLE_PLOT, fontweight='bold', pad=20)
+        ax.grid(True, linestyle='--', alpha=0.3, linewidth=1.5)
+        ax.legend(fontsize=FONT_SIZE_LEGEND, loc='best', framealpha=0.9)
+        ax.tick_params(labelsize=FONT_SIZE_TICK, width=1.5, length=6)
+        ax.set_xticks(scales)
+        
+        # Melhorar aparência
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.spines['left'].set_linewidth(1.5)
+        ax.spines['bottom'].set_linewidth(1.5)
+        
+        plt.tight_layout()
+        output_path = os.path.join(output_dir, f'scalability_{metric_key}.png')
+        output_path_pdf = os.path.join(output_dir, f'scalability_{metric_key}.pdf')
+        plt.savefig(output_path, dpi=300, bbox_inches='tight', facecolor='white')
+        plt.savefig(output_path_pdf, bbox_inches='tight', facecolor='white')
+        print(f"✓ Gráfico gerado: {output_path}")
+        plt.close()
+
+def plot_qualitative_metrics_multi_scale(results_dirs, output_dir='.'):
+    """
+    Gera gráficos de características qualitativas comparando múltiplas escalas.
+    Similar aos gráficos qualitative_*.png.
+    
+    Args:
+        results_dirs: Lista de tuplas (scale, dir_path) ou dict {scale: dir_path}
+        output_dir: Diretório de saída
+    """
+    if isinstance(results_dirs, dict):
+        scales_data = results_dirs
+    else:
+        scales_data = {scale: dir_path for scale, dir_path in results_dirs}
+    
+    if len(scales_data) == 0:
+        print("AVISO: Nenhum diretório fornecido para análise qualitativa")
+        return
+    
+    # Carrega dados de todas as escalas
+    dfs = {}
+    for scale_str, dir_path in scales_data.items():
+        summary_path = os.path.join(dir_path, 'summary_results.csv')
+        if os.path.exists(summary_path):
+            df = pd.read_csv(summary_path)
+            df['Scale'] = int(scale_str)
+            # Calcula distância da subestação (se não existir)
+            if 'Substation_Eccentricity_m' not in df.columns:
+                # Tenta calcular se tiver coordenadas
+                if 'Substation_X' in df.columns and 'Substation_Y' in df.columns:
+                    df['Substation_Eccentricity_m'] = np.sqrt(
+                        df['Substation_X']**2 + df['Substation_Y']**2
+                    )
+            dfs[scale_str] = df
+        else:
+            print(f"AVISO: {summary_path} não encontrado, pulando escala {scale_str}")
+    
+    if len(dfs) == 0:
+        print("AVISO: Nenhum dado disponível para análise qualitativa")
+        return
+    
+    colors = {'Baseline': '#1f77b4', 'Proposed': '#2ca02c', 'Sequential': '#d62728'}
+    
+    # Características qualitativas
+    characteristics = {
+        'substation_distance': {
+            'col': 'Substation_Eccentricity_m',
+            'ylabel': 'Substation Distance (m)',
+            'title': 'Substation Distance by Method and Scale'
+        },
+        'cable_length': {
+            'col': 'Total_Cable_Length_km',
+            'ylabel': 'Total Cable Length (km)',
+            'title': 'Cable Length by Method and Scale'
+        },
+        'cable_groups': {
+            'col': 'Num_Cable_Strings',
+            'ylabel': 'Number of Cable Groups',
+            'title': 'Cable Groups by Method and Scale'
+        },
+        'electrical_losses': {
+            'col': 'Electrical_Loss_Percentage',
+            'ylabel': 'Electrical Losses (%)',
+            'title': 'Electrical Losses by Method and Scale'
+        }
+    }
+    
+    scales = sorted([int(s) for s in dfs.keys()])
+    scale_strs = [str(s) for s in scales]
+    x = np.arange(len(scales))
+    width = 0.25
+    
+    for char_key, char_info in characteristics.items():
+        fig, ax = plt.subplots(figsize=(10, 7))
+        
+        for i, method in enumerate(['Baseline', 'Proposed', 'Sequential']):
+            means = []
+            stds = []
+            
+            for scale_str in scale_strs:
+                if scale_str in dfs:
+                    df_scale = dfs[scale_str]
+                    data = df_scale[df_scale['Method'] == method]
+                    
+                    if len(data) > 0 and char_info['col'] in data.columns:
+                        values = data[char_info['col']].dropna().values
+                        if len(values) > 0:
+                            means.append(np.mean(values))
+                            stds.append(np.std(values))
+                        else:
+                            means.append(0)
+                            stds.append(0)
+                    else:
+                        means.append(0)
+                        stds.append(0)
+                else:
+                    means.append(0)
+                    stds.append(0)
+            
+            ax.bar(x + i*width, means, width, label=method, color=colors[method],
+                  alpha=0.8, yerr=stds, capsize=8, error_kw={'linewidth': 2.5, 'capthick': 2.5})
+        
+        ax.set_xlabel('Number of Turbines', fontsize=FONT_SIZE_LABEL_AXIS, fontweight='bold')
+        ax.set_ylabel(char_info['ylabel'], fontsize=FONT_SIZE_LABEL_AXIS, fontweight='bold')
+        ax.set_title(char_info['title'], fontsize=FONT_SIZE_TITLE_PLOT, fontweight='bold', pad=20)
+        ax.set_xticks(x + width)
+        ax.set_xticklabels([str(s) for s in scales])
+        ax.legend(fontsize=FONT_SIZE_LEGEND, loc='best', framealpha=0.9)
+        ax.grid(True, linestyle='--', alpha=0.3, axis='y', linewidth=1.5)
+        ax.tick_params(labelsize=FONT_SIZE_TICK, width=1.5, length=6)
+        
+        # Melhorar aparência
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.spines['left'].set_linewidth(1.5)
+        ax.spines['bottom'].set_linewidth(1.5)
+        
+        plt.tight_layout()
+        output_path = os.path.join(output_dir, f'qualitative_{char_key}.png')
+        output_path_pdf = os.path.join(output_dir, f'qualitative_{char_key}.pdf')
+        plt.savefig(output_path, dpi=300, bbox_inches='tight', facecolor='white')
+        plt.savefig(output_path_pdf, bbox_inches='tight', facecolor='white')
+        print(f"✓ Gráfico gerado: {output_path}")
+        plt.close()
+
 # =============================================================================
 # FUNÇÃO PRINCIPAL
 # =============================================================================
 
-def main(results_dir):
+def main(results_dir, multi_scale_dirs=None):
     """
     Função principal: lê os CSVs e gera todos os gráficos.
     
     Args:
-        results_dir: Diretório onde estão os CSVs (padrão: 'results_36')
+        results_dir: Diretório onde estão os CSVs (ex: 'results_36')
+        multi_scale_dirs: Opcional. Dict {scale: dir_path} para análise multi-escala.
+                         Ex: {'16': 'results_16', '36': 'results_36', '64': 'results_64'}
+                         Se fornecido, gera também gráficos de escalabilidade e qualitativos multi-escala.
     """
     print("="*80)
     print("GERANDO GRÁFICOS DOS RESULTADOS DO ESTUDO DE CASO")
@@ -1043,11 +1287,47 @@ def main(results_dir):
     print("\n>>> Calculando taxa de sucesso para todos os métodos...")
     calculate_and_save_success_rates(df_summary, output_dir=results_dir)
     
+    # 9. Análise multi-escala (se múltiplos diretórios fornecidos)
+    if multi_scale_dirs is not None and len(multi_scale_dirs) > 1:
+        print("\n>>> Gerando gráficos de escalabilidade multi-escala...")
+        plot_scalability_metrics(multi_scale_dirs, output_dir=results_dir)
+        
+        print("\n>>> Gerando gráficos qualitativos multi-escala...")
+        plot_qualitative_metrics_multi_scale(multi_scale_dirs, output_dir=results_dir)
+    
     print("\n" + "="*80)
     print("TODOS OS GRÁFICOS GERADOS COM SUCESSO!")
     print("="*80)
     print(f"✓ Gráficos salvos em: {os.path.abspath(results_dir)}")
 
 if __name__ == "__main__":
-
-    main(results_dir='results_16')
+    import argparse
+    
+    parser = argparse.ArgumentParser(description='Gera gráficos dos resultados do estudo de caso')
+    parser.add_argument('--results-dir', type=str, default='results_36',
+                       help='Diretório onde estão os CSVs (padrão: results_36)')
+    parser.add_argument('--multi-scale', nargs='+', type=str,
+                       help='Diretórios para análise multi-escala. Ex: --multi-scale results_16 results_36 results_64')
+    parser.add_argument('--scales', nargs='+', type=str,
+                       help='Escalas correspondentes. Ex: --scales 16 36 64 (deve ter mesmo número de --multi-scale)')
+    
+    args = parser.parse_args()
+    
+    multi_scale_dirs = None
+    if args.multi_scale:
+        if args.scales and len(args.scales) == len(args.multi_scale):
+            multi_scale_dirs = {scale: dir_path for scale, dir_path in zip(args.scales, args.multi_scale)}
+        else:
+            # Tenta inferir escala do nome do diretório
+            multi_scale_dirs = {}
+            for dir_path in args.multi_scale:
+                # Procura número no nome do diretório
+                import re
+                match = re.search(r'(\d+)', os.path.basename(dir_path))
+                if match:
+                    scale = match.group(1)
+                    multi_scale_dirs[scale] = dir_path
+                else:
+                    print(f"AVISO: Não foi possível inferir escala de {dir_path}, pulando...")
+    
+    main(results_dir=args.results_dir, multi_scale_dirs=multi_scale_dirs)
