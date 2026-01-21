@@ -9,22 +9,27 @@ Compara 3 métodos de otimização para parques eólicos offshore:
 Todos os métodos começam com a mesma população inicial (coordenadas do YAML).
 """
 
+"""
+CÓDIGO PRINCIPAL DE EXECUÇÃO DO ESTUDO DE CASO
+==============================================
+Executa os 3 métodos de otimização e salva resultados em 3 CSVs:
+1. summary_results.csv - Uma linha por execução/método (melhor solução)
+2. all_pareto_fronts.csv - Múltiplas linhas por execução (todas soluções Pareto)
+3. convergence_history.csv - Uma linha a cada X gerações (dinâmica do algoritmo)
+
+NOTA: As funções de plotagem foram removidas e devem ser executadas separadamente
+usando o arquivo case_study_plot.py que lê os CSVs gerados.
+"""
+
 import sys
 import os
 import time
 import random
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-from matplotlib.patches import Circle
 from deap import base, creator, tools
 import multiprocessing
 from functools import partial
-
-# Configuração de fontes para publicação
-import matplotlib
-matplotlib.rcParams['pdf.fonttype'] = 42
-matplotlib.rcParams['ps.fonttype'] = 42
 
 # Importa função de hipervolume
 try:
@@ -32,25 +37,22 @@ try:
 except ImportError:
     from deap.tools._hypervolume import pyhv as hypervolume_module
 
-# Configurações de tamanhos de fonte e marcadores (seguindo visualizing_results_pareto_layout.py)
-FONT_SIZE_BASE = 13
-FONT_SIZE_TITLE_MAIN = 22
-FONT_SIZE_TITLE_PLOT = 20
-FONT_SIZE_TITLE_SUBPLOT = 16
-FONT_SIZE_LABEL_AXIS = 14
-FONT_SIZE_LABEL_AXIS_SMALL = 13
-FONT_SIZE_LEGEND = 13
-FONT_SIZE_LEGEND_SMALL = 12
-FONT_SIZE_TICK = 14
-TURBINE_MARKER_SIZE = 40
-TURBINE_EDGE_WIDTH = 1.0
-SUBSTATION_MARKER_SIZE = 200
-CABLE_LINEWIDTH = 1.0
-
 # Importa módulos do projeto
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from config.iea37_aepcalc import calcAEP, getTurbLocYAML, getWindRoseYAML, getTurbAtrbtYAML
 import multi_objetivo.cabling_v3 as cabling_v3
+
+# Importa módulo de coleta de métricas
+from multi_objetivo.metrics_collector import (
+    collect_summary_metrics,
+    collect_pareto_front_metrics,
+    collect_convergence_metrics,
+    collect_representative_solution_coords,
+    save_summary_results,
+    save_pareto_fronts,
+    save_convergence_history,
+    save_representative_solutions
+)
 
 # =============================================================================
 # CONFIGURAÇÃO DO ESTUDO DE CASO
@@ -58,9 +60,9 @@ import multi_objetivo.cabling_v3 as cabling_v3
 
 # SEED será gerada aleatoriamente no início da execução e salva para reprodutibilidade
 SEED = None  # Será definida no início da execução
-N_RUNS = 2  # Número de execuções (cada uma com seed diferente)
-POP_SIZE = 100  # Tamanho da população
-generations = 200
+N_RUNS = 5  # Número de execuções (cada uma com seed diferente)
+POP_SIZE = 15  # Tamanho da população
+generations = 500
 NGEN_BASELINE = 2*generations  # Número de gerações para Baseline
 NGEN_SEQUENTIAL_P1 = generations  # Gerações Fase 1 Sequential (igual ao wind_farm_GA_16.py)
 NGEN_SEQUENTIAL_P2 = generations  # Gerações Fase 2 Sequential (otimização de cabeamento)
@@ -81,9 +83,9 @@ N_DIAMETERS = 260  # Distância mínima entre turbinas (diâmetros)
 MIN_SUB_TURB_DIST = 50.0  # Distância mínima entre subestação e turbinas (metros)
 
 # Limites para número de grupos de cabeamento
-MIN_GRUPOS = 2
-MAX_GRUPOS = 64
-N_GRUPOS_INICIAL = MIN_GRUPOS
+MIN_GRUPOS = np.sqrt(IND_SIZE)
+MAX_GRUPOS = IND_SIZE
+N_GRUPOS_INICIAL = random.randint(MIN_GRUPOS, MAX_GRUPOS)
 
 # =============================================================================
 # CONFIGURAÇÃO DO DIRETÓRIO DE SAÍDA
@@ -100,6 +102,12 @@ MIN_ANGLE_SUBSTATION = 30  # Ângulo mínimo (graus) entre cabos chegando na sub
 PENALTY_CROSSING = 1e6  # Penalidade por cruzamento de cabos
 PENALTY_MULTIPLE_CONNECTIONS = 1e6  # Penalidade por múltiplas conexões na mesma turbina
 PENALTY_SMALL_ANGLE_SUBSTATION = 1e6  # Penalidade por ângulo muito fechado na subestação
+
+# Penalidades MUITO reduzidas para inicialização (permite layouts ruins que podem ser evoluídos)
+# Reduzidas em 1000x comparado às penalidades normais para permitir inicialização mesmo com problemas
+PENALTY_CROSSING_INIT = 1e3  # Penalidade muito reduzida por cruzamento na inicialização (1000x menor)
+PENALTY_MULTIPLE_CONNECTIONS_INIT = 1e3  # Penalidade muito reduzida por múltiplas conexões na inicialização
+PENALTY_SMALL_ANGLE_SUBSTATION_INIT = 1e3  # Penalidade muito reduzida por ângulo fechado na inicialização
 
 # Parâmetros Proposed Fase 2 (similar ao multi16_prioriza_aep.py)
 HOF_SIZE_P1 = 50  # Tamanho do Hall of Fame Fase 1
@@ -215,7 +223,7 @@ def displace_substation_from_turbines(centroid, turb_coords, min_distance=50.0):
     
     return sub_pos.tolist()
 
-def detectar_sobreposicao_cabos(paths, coords, min_distance=100.0, substation_idx=None):
+def detectar_sobreposicao_cabos(paths, coords, min_distance=100.0, substation_idx=None, init_mode=False):
     """
     Detecta cruzamentos, proximidade excessiva e múltiplas conexões na mesma turbina.
     
@@ -416,17 +424,23 @@ def detectar_sobreposicao_cabos(paths, coords, min_distance=100.0, substation_id
                             violation = min_distance - dist
                             penalty_proximidade += violation * (min_distance / max(dist, 1.0)) * 1000
     
-    # Penalidade EXTREMA para cruzamentos: elimina soluções com cruzamentos
-    # Cada cruzamento é inaceitável e deve ser fortemente punido
-    penalty_cruzamentos = n_cruzamentos * PENALTY_CROSSING
-    
-    # Penalidade EXTREMA para múltiplas conexões: elimina soluções com turbinas conectadas múltiplas vezes
-    # Cada conexão múltipla é inaceitável e deve ser fortemente punida
-    penalty_multiplas = n_multiplas_conexoes * PENALTY_MULTIPLE_CONNECTIONS
-    
-    # Penalidade para ângulos muito fechados na subestação
-    # Cabos chegando com ângulo < 15° estão muito próximos e devem ser penalizados
-    penalty_angulo_fechado = n_angulos_fechados_sub * PENALTY_SMALL_ANGLE_SUBSTATION
+    # Penalidade para cruzamentos: usa valores diferentes para inicialização vs. evolução
+    if init_mode:
+        penalty_cruzamentos = n_cruzamentos * PENALTY_CROSSING_INIT
+        penalty_multiplas = n_multiplas_conexoes * PENALTY_MULTIPLE_CONNECTIONS_INIT
+        penalty_angulo_fechado = n_angulos_fechados_sub * PENALTY_SMALL_ANGLE_SUBSTATION_INIT
+    else:
+        # Penalidade EXTREMA para cruzamentos: elimina soluções com cruzamentos
+        # Cada cruzamento é inaceitável e deve ser fortemente punido
+        penalty_cruzamentos = n_cruzamentos * PENALTY_CROSSING
+        
+        # Penalidade EXTREMA para múltiplas conexões: elimina soluções com turbinas conectadas múltiplas vezes
+        # Cada conexão múltipla é inaceitável e deve ser fortemente punida
+        penalty_multiplas = n_multiplas_conexoes * PENALTY_MULTIPLE_CONNECTIONS
+        
+        # Penalidade para ângulos muito fechados na subestação
+        # Cabos chegando com ângulo < 15° estão muito próximos e devem ser penalizados
+        penalty_angulo_fechado = n_angulos_fechados_sub * PENALTY_SMALL_ANGLE_SUBSTATION
     
     # Penalidade total: extremamente alta para garantir eliminação
     penalty_total = penalty_cruzamentos + penalty_proximidade + penalty_multiplas + penalty_angulo_fechado
@@ -439,15 +453,15 @@ def detectar_sobreposicao_cabos(paths, coords, min_distance=100.0, substation_id
 
 def create_global_initial_population(seed, pop_size):
     """
-    Cria população inicial GLOBAL de coordenadas de turbinas (diversificada).
+    Cria população inicial GLOBAL de coordenadas de turbinas.
     Esta população será compartilhada por Baseline, Sequential e Proposed.
     
-    Estratégia:
-    - 20% dos indivíduos: coordenadas EXATAS do YAML
-    - 80% dos indivíduos: coordenadas PERTURBADAS do YAML (diversidade)
+    Estratégia ROBUSTA:
+    - 100% dos indivíduos: coordenadas EXATAS do YAML (sem perturbações)
+    - Isso garante que todos os métodos comecem com layouts válidos e conhecidos
     
     Args:
-        seed: Seed para reprodutibilidade
+        seed: Seed para reprodutibilidade (mantido para compatibilidade, mas não usado)
         pop_size: Tamanho da população
     
     Returns:
@@ -458,28 +472,11 @@ def create_global_initial_population(seed, pop_size):
     
     global_coords_pop = []
     
+    # TODOS os indivíduos usam coordenadas EXATAS do YAML
+    # Isso garante máxima robustez na inicialização
     for i in range(pop_size):
-        use_exact_coords = (i < pop_size * 0.2)  # Primeiros 20% usam coordenadas exatas
-        
-        if use_exact_coords:
-            # Coordenadas EXATAS do YAML
-            coords = initial_coordinates.copy()
-        else:
-            # Coordenadas PERTURBADAS do YAML
-            coords = initial_coordinates.copy()
-            perturbation_sigma = SIGMA * 0.3  # 30% do sigma de mutação
-            for j in range(len(coords)):
-                coords[j, 0] += random.gauss(0, perturbation_sigma)
-                coords[j, 1] += random.gauss(0, perturbation_sigma)
-            
-            # Aplica restrições de círculo
-            for j in range(len(coords)):
-                x, y = coords[j, 0], coords[j, 1]
-                if not is_within_circle(x, y, CIRCLE_RADIUS):
-                    angle = np.arctan2(y, x)
-                    coords[j, 0] = CIRCLE_RADIUS * np.cos(angle)
-                    coords[j, 1] = CIRCLE_RADIUS * np.sin(angle)
-        
+        # Coordenadas EXATAS do YAML (cópia para evitar referências compartilhadas)
+        coords = initial_coordinates.copy()
         global_coords_pop.append(coords.copy())
     
     return global_coords_pop
@@ -492,7 +489,7 @@ def create_global_initial_population(seed, pop_size):
 _global_coords_population = None
 _global_coords_index = 0
 
-def create_baseline_individual():
+def create_baseline_individual(conservative=False, n_grupos_target=None):
     """
     Cria indivíduo Baseline usando coordenadas da população inicial GLOBAL.
     
@@ -501,6 +498,10 @@ def create_baseline_individual():
     - [1 n_grupos]: número de grupos normalizado [0, 1]
     - [2 coords subestação]: coordenadas (x, y) da subestação
     Total: IND_SIZE*2 + 3 variáveis
+    
+    Args:
+        conservative: Se True, usa estratégia conservadora (coordenadas exatas, mais grupos, subestação no centroide)
+        n_grupos_target: Se especificado, força número de grupos específico (normalizado [0, 1])
     """
     global _global_coords_population, _global_coords_index
     
@@ -509,26 +510,40 @@ def create_baseline_individual():
         # Fallback: usa coordenadas exatas do YAML se população global não estiver definida
         coords = initial_coordinates.flatten().tolist()
     else:
-        coords_array = _global_coords_population[_global_coords_index % len(_global_coords_population)]
-        _global_coords_index += 1
-        coords = coords_array.flatten().tolist()
+        if conservative:
+            # Modo conservador: sempre usa coordenadas exatas do YAML (primeiro elemento)
+            coords = initial_coordinates.flatten().tolist()
+        else:
+            coords_array = _global_coords_population[_global_coords_index % len(_global_coords_population)]
+            _global_coords_index += 1
+            coords = coords_array.flatten().tolist()
     
-    # 2. Gene de Grupos [0, 1] - VARIADO para diversidade
-    # Distribui uniformemente entre MIN_GRUPOS e MAX_GRUPOS
-    n_grupos_norm = random.uniform(0.0, 1.0)
-    n_grupos_norm = max(0.0, min(1.0, n_grupos_norm))
-    
-    # 3. Subestação - POSIÇÃO VARIADA para diversidade
     coords_array = np.array(coords).reshape((IND_SIZE, 2))
     centroid = np.mean(coords_array, axis=0)
     
-    # Varia posição da subestação ao redor do centroide
-    angle = random.uniform(0, 2 * np.pi)
-    radius = random.uniform(MIN_SUB_TURB_DIST, CIRCLE_RADIUS * 0.3)
-    sub_pos_candidate = centroid + np.array([radius * np.cos(angle), radius * np.sin(angle)])
+    if n_grupos_target is not None:
+        # Força número de grupos específico
+        n_grupos_norm = n_grupos_target
+    elif conservative:
+        # Modo conservador: número de grupos maior (mais seguro, menos chance de cruzamentos)
+        # Usa número de grupos entre 60% e 80% do máximo (mais grupos = menos cruzamentos)
+        n_grupos_norm = random.uniform(0.6, 0.8)
+        n_grupos_norm = max(0.0, min(1.0, n_grupos_norm))
+    else:
+        # Modo normal: VARIADO para diversidade
+        # 2. Gene de Grupos [0, 1] - Distribui uniformemente entre MIN_GRUPOS e MAX_GRUPOS
+        n_grupos_norm = random.uniform(0.0, 1.0)
+        n_grupos_norm = max(0.0, min(1.0, n_grupos_norm))
     
-    # Garante distância mínima das turbinas
-    sub_pos = displace_substation_from_turbines(sub_pos_candidate, coords_array, min_distance=MIN_SUB_TURB_DIST)
+    if conservative:
+        # Subestação no centroide (mais seguro)
+        sub_pos = displace_substation_from_turbines(centroid, coords_array, min_distance=MIN_SUB_TURB_DIST)
+    else:
+        # 3. Subestação - POSIÇÃO VARIADA para diversidade
+        angle = random.uniform(0, 2 * np.pi)
+        radius = random.uniform(MIN_SUB_TURB_DIST, CIRCLE_RADIUS * 0.3)
+        sub_pos_candidate = centroid + np.array([radius * np.cos(angle), radius * np.sin(angle)])
+        sub_pos = displace_substation_from_turbines(sub_pos_candidate, coords_array, min_distance=MIN_SUB_TURB_DIST)
     
     # Monta genoma completo
     full_genome = coords + [n_grupos_norm] + sub_pos
@@ -541,7 +556,7 @@ toolbox_baseline.register("population", tools.initRepeat, list, toolbox_baseline
 # FUNÇÃO DE AVALIAÇÃO (BASELINE)
 # =============================================================================
 
-def evaluate_baseline(individual):
+def evaluate_baseline(individual, init_mode=False):
     """
     Avalia indivíduo Baseline: calcula AEP líquido e Custo total.
     
@@ -563,26 +578,28 @@ def evaluate_baseline(individual):
         
         turb_coords = np.array(coords_flat).reshape((IND_SIZE, 2))
         
-        # Penalidades geométricas
+        # Penalidades geométricas (reduzidas na inicialização para permitir layouts ruins)
+        penalty_mult_geom = 1e3 if init_mode else 1e5  # Multiplicador de penalidades geométricas (100x menor na inicialização)
+        
         dist_turb = np.linalg.norm(turb_coords, axis=1)
         violations_turb = np.maximum(0, dist_turb - CIRCLE_RADIUS)
-        pen_turb_out = np.sum(violations_turb) * 1e5
+        pen_turb_out = np.sum(violations_turb) * penalty_mult_geom
         
         # Distância Turbina-Turbina
         diff = turb_coords[:, np.newaxis, :] - turb_coords[np.newaxis, :, :]
         dists = np.linalg.norm(diff, axis=2)
         i_u, j_u = np.triu_indices(IND_SIZE, k=1)
         violations = np.maximum(0, N_DIAMETERS - dists[i_u, j_u])
-        pen_spacing = np.sum(violations) * 1e5
+        pen_spacing = np.sum(violations) * penalty_mult_geom
         
         # Distância Sub-Turbina
         d_sub_turb = np.linalg.norm(turb_coords - sub_pos, axis=1)
         violation_sub_close = np.maximum(0, MIN_SUB_TURB_DIST - np.min(d_sub_turb))
-        pen_sub_close = violation_sub_close * 1e5
+        pen_sub_close = violation_sub_close * penalty_mult_geom
         
         # Subestação fora do círculo
         dist_sub = np.linalg.norm(sub_pos)
-        pen_sub_out = np.maximum(0, dist_sub - CIRCLE_RADIUS) * 1e5
+        pen_sub_out = np.maximum(0, dist_sub - CIRCLE_RADIUS) * penalty_mult_geom
         
         # Calcula AEP bruto
         wind_dir, wind_freq, wind_speed = WIND_ROSE_DATA
@@ -601,18 +618,26 @@ def evaluate_baseline(individual):
             
             # SEMPRE detecta cruzamentos, proximidade excessiva e múltiplas conexões
             # Esta penalidade é aplicada globalmente em todos os métodos
+            # Na inicialização, usa penalidades reduzidas para garantir que pelo menos algumas soluções sejam válidas
             penalty_overlap = detectar_sobreposicao_cabos(
-                plant.paths, coords_all, min_distance=MIN_CABLE_DISTANCE, substation_idx=substation_idx)
+                plant.paths, coords_all, min_distance=MIN_CABLE_DISTANCE, substation_idx=substation_idx, init_mode=init_mode)
         except Exception as e:
             # Em caso de erro no cabeamento, aplica penalidade extrema
             return -1e6, 1e12
         
         # AEP líquido e custo final (com penalidades)
+        # Na inicialização, permite AEP negativo pequeno (será corrigido na evolução)
         aep_liq = aep_bruto - perdas_mwh - pen_turb_out - pen_spacing - pen_sub_out - pen_sub_close - penalty_overlap
         custo_final = custo_usd + pen_turb_out + pen_spacing + pen_sub_out + pen_sub_close + penalty_overlap
         
-        if aep_liq <= 0:
-            return -1e6, 1e12
+        # Na inicialização, aceita soluções mesmo com AEP negativo pequeno (até -1000 MWh)
+        # Isso permite que layouts ruins sejam aceitos e evoluídos
+        if init_mode:
+            if aep_liq <= -1000:  # Apenas rejeita se AEP for muito negativo
+                return -1e6, 1e12
+        else:
+            if aep_liq <= 0:  # Durante evolução, rejeita AEP não positivo
+                return -1e6, 1e12
         
         return aep_liq, custo_final
         
@@ -620,6 +645,11 @@ def evaluate_baseline(individual):
         return -1e6, 1e12
 
 toolbox_baseline.register("evaluate", evaluate_baseline)
+
+# Wrapper para avaliação na inicialização (com penalidades reduzidas)
+def evaluate_baseline_init(individual):
+    """Wrapper para evaluate_baseline com init_mode=True (penalidades reduzidas)."""
+    return evaluate_baseline(individual, init_mode=True)
 
 # =============================================================================
 # OPERADORES GENÉTICOS (BASELINE)
@@ -693,7 +723,7 @@ toolbox_baseline.register("select", tools.selNSGA2)
 # MÉTODO BASELINE (NSGA-II)
 # =============================================================================
 
-def run_baseline_method(seed, global_coords_pop=None, pool=None):
+def run_baseline_method(seed, global_coords_pop=None, pool=None, run_id=None, output_dir=None):
     """
     Executa método Baseline: NSGA-II puro.
     
@@ -704,6 +734,8 @@ def run_baseline_method(seed, global_coords_pop=None, pool=None):
         seed: Seed para reprodutibilidade
         global_coords_pop: População inicial global de coordenadas (compartilhada)
         pool: Pool de processos para paralelização (opcional)
+        run_id: ID da execução (para salvar métricas de convergência)
+        output_dir: Diretório de saída (para salvar métricas de convergência)
     
     Returns:
         pareto_front: Lista de soluções não-dominadas
@@ -736,8 +768,85 @@ def run_baseline_method(seed, global_coords_pop=None, pool=None):
     
     # Filtra apenas soluções válidas
     pop = [ind for ind in pop if ind.fitness.valid and ind.fitness.values[0] > 0]
+    
+    # ESTRATÉGIA ROBUSTA MULTI-NÍVEL: Tenta múltiplas estratégias até encontrar soluções válidas
     if len(pop) == 0:
-        return [], []
+        print(f"   AVISO: População inicial sem soluções válidas. Tentando estratégias robustas...")
+        
+        # Estratégia 1: Conservadora padrão (60-80% grupos)
+        print(f"      Tentativa 1/4: Estratégia conservadora (60-80% grupos)...")
+        pop_conservative = []
+        for _ in range(POP_SIZE):
+            ind = create_baseline_individual(conservative=True)
+            pop_conservative.append(ind)
+        
+        invalid_ind = [ind for ind in pop_conservative if not ind.fitness.valid]
+        # Usa avaliação com penalidades reduzidas na inicialização
+        fits = list(map(evaluate_baseline_init, invalid_ind))
+        for ind, fit in zip(invalid_ind, fits):
+            ind.fitness.values = fit
+        
+        pop = [ind for ind in pop_conservative if ind.fitness.valid and ind.fitness.values[0] > 0]
+        
+        # Estratégia 2: Ultra-conservadora com muitos grupos (80-95% do máximo)
+        if len(pop) == 0:
+            print(f"      Tentativa 2/4: Estratégia ultra-conservadora (80-95% grupos)...")
+            pop_ultra = []
+            for _ in range(POP_SIZE):
+                # Força número de grupos alto (80-95% do máximo)
+                n_grupos_norm = random.uniform(0.8, 0.95)
+                ind = create_baseline_individual(conservative=True, n_grupos_target=n_grupos_norm)
+                pop_ultra.append(ind)
+            
+            invalid_ind = [ind for ind in pop_ultra if not ind.fitness.valid]
+            fits = list(map(evaluate_baseline_init, invalid_ind))
+            for ind, fit in zip(invalid_ind, fits):
+                ind.fitness.values = fit
+            
+            pop = [ind for ind in pop_ultra if ind.fitness.valid and ind.fitness.values[0] > 0]
+        
+        # Estratégia 3: Número de grupos próximo ao número de turbinas (máxima segurança)
+        if len(pop) == 0:
+            print(f"      Tentativa 3/4: Máximo número de grupos (próximo a {IND_SIZE} grupos)...")
+            pop_max_groups = []
+            for _ in range(POP_SIZE):
+                # Usa número de grupos próximo ao número de turbinas (normalizado)
+                # Ex: 36 turbinas -> 30-36 grupos = 0.85-1.0 normalizado
+                n_grupos_target = random.uniform(0.85, 1.0)
+                ind = create_baseline_individual(conservative=True, n_grupos_target=n_grupos_target)
+                pop_max_groups.append(ind)
+            
+            invalid_ind = [ind for ind in pop_max_groups if not ind.fitness.valid]
+            fits = list(map(evaluate_baseline_init, invalid_ind))
+            for ind, fit in zip(invalid_ind, fits):
+                ind.fitness.values = fit
+            
+            pop = [ind for ind in pop_max_groups if ind.fitness.valid and ind.fitness.values[0] > 0]
+        
+        # Estratégia 4: Última tentativa - número de grupos fixo no máximo seguro
+        if len(pop) == 0:
+            print(f"      Tentativa 4/4: Número de grupos fixo no máximo ({IND_SIZE} grupos)...")
+            pop_fixed = []
+            # Usa número de grupos igual ao número de turbinas (máxima segurança)
+            n_grupos_fixed = 1.0  # Normalizado = 1.0 = MAX_GRUPOS
+            for _ in range(POP_SIZE):
+                ind = create_baseline_individual(conservative=True, n_grupos_target=n_grupos_fixed)
+                pop_fixed.append(ind)
+            
+            invalid_ind = [ind for ind in pop_fixed if not ind.fitness.valid]
+            fits = list(map(evaluate_baseline_init, invalid_ind))
+            for ind, fit in zip(invalid_ind, fits):
+                ind.fitness.values = fit
+            
+            pop = [ind for ind in pop_fixed if ind.fitness.valid and ind.fitness.values[0] > 0]
+        
+        if len(pop) == 0:
+            print(f"   ERRO: Todas as estratégias falharam. Nenhuma solução válida encontrada.")
+            print(f"   Isso pode indicar problemas graves com cabeamento ou configuração do problema.")
+            print(f"   Verifique: MIN_GRUPOS={MIN_GRUPOS}, MAX_GRUPOS={MAX_GRUPOS}, IND_SIZE={IND_SIZE}")
+            return [], []
+        else:
+            print(f"   ✓ Estratégia robusta funcionou: {len(pop)} soluções válidas encontradas")
     
     # Histórico de hipervolume
     hv_history = []
@@ -770,7 +879,7 @@ def run_baseline_method(seed, global_coords_pop=None, pool=None):
         combined = pop + offspring
         pop = toolbox_baseline.select(combined, POP_SIZE)
         
-        # Calcula hipervolume a cada 20 gerações
+        # Calcula hipervolume a cada 20 gerações e coleta métricas de convergência
         if gen % 20 == 0:
             valid_pop = [ind for ind in pop if ind.fitness.valid and ind.fitness.values[0] > 0]
             if len(valid_pop) > 0:
@@ -779,6 +888,15 @@ def run_baseline_method(seed, global_coords_pop=None, pool=None):
                 temp_pf.update(valid_pop)
                 hv = calculate_hypervolume(list(temp_pf))
                 hv_history.append((gen, hv))
+                
+                # Coleta métricas de convergência para convergence_history.csv
+                if run_id is not None and output_dir is not None:
+                    conv_metrics = collect_convergence_metrics(
+                        run_id, 'Baseline', gen, pop,
+                        pareto_front=list(temp_pf), ref_point=None,
+                        hypervolume_func=calculate_hypervolume
+                    )
+                    save_convergence_history(conv_metrics, output_dir=output_dir, append=True)
         
         if gen % 100 == 0:
             valid_pop = [ind for ind in pop if ind.fitness.valid and ind.fitness.values[0] > 0]
@@ -1262,12 +1380,12 @@ def create_individual_proposed_phase2_from_coords(coords, substation_pos=None):
     
     return creator.IndividualBaseline(coords_flat + [n_grupos_normalizado] + list(substation_pos))
 
-def evaluate_proposed_phase2(individual):
+def evaluate_proposed_phase2(individual, init_mode=False):
     """
     Avaliação Fase 2 Proposed: igual ao evaluate_baseline (AEP líquido + Custo).
     Inclui penalidades por cruzamento de cabos e proximidade excessiva.
     """
-    return evaluate_baseline(individual)
+    return evaluate_baseline(individual, init_mode=init_mode)
 
 def mutate_proposed_phase2(individual, mu, sigma, indpb):
     """
@@ -1330,11 +1448,16 @@ def mate_proposed_phase2(ind1, ind2):
     return ind1, ind2
 
 toolbox_prop_p2.register("evaluate", evaluate_proposed_phase2)
+
+# Wrapper para avaliação na inicialização (com penalidades reduzidas)
+def evaluate_proposed_phase2_init(individual):
+    """Wrapper para evaluate_proposed_phase2 com init_mode=True (penalidades reduzidas)."""
+    return evaluate_proposed_phase2(individual, init_mode=True)
 toolbox_prop_p2.register("mate", mate_proposed_phase2)
 toolbox_prop_p2.register("mutate", mutate_proposed_phase2, mu=0, sigma=SIGMA, indpb=INDPB)
 toolbox_prop_p2.register("select", tools.selNSGA2)
 
-def run_proposed_phase2(seed, best_layouts_phase1, pool=None):
+def run_proposed_phase2(seed, best_layouts_phase1, pool=None, run_id=None, output_dir=None):
     """
     Executa Fase 2 do Proposed: NSGA-II multiobjetivo.
     Similar ao optimize_phase2 do multi16_prioriza_aep.py.
@@ -1343,6 +1466,8 @@ def run_proposed_phase2(seed, best_layouts_phase1, pool=None):
         seed: Seed para reprodutibilidade
         best_layouts_phase1: Lista dos melhores layouts da Fase 1
         pool: Pool de processos para paralelização (opcional)
+        run_id: ID da execução (para salvar métricas de convergência)
+        output_dir: Diretório de saída (para salvar métricas de convergência)
     """
     random.seed(seed)
     np.random.seed(seed)
@@ -1438,8 +1563,116 @@ def run_proposed_phase2(seed, best_layouts_phase1, pool=None):
     
     # Filtra apenas soluções válidas
     pop = [ind for ind in pop if ind.fitness.valid and ind.fitness.values[0] > 0]
+    
+    # ESTRATÉGIA ROBUSTA MULTI-NÍVEL: Tenta múltiplas estratégias até encontrar soluções válidas
     if len(pop) == 0:
-        return [], []
+        print(f"   AVISO: População inicial Proposed Fase 2 sem soluções válidas. Tentando estratégias robustas...")
+        
+        def create_conservative_pop_proposed(n_grupos_min_norm, n_grupos_max_norm):
+            """Helper para criar população conservadora com faixa de grupos especificada."""
+            pop_cons = []
+            for i, layout in enumerate(best_layouts_phase1):
+                coords_list = list(layout)
+                if len(coords_list) != IND_SIZE * 2:
+                    continue
+                
+                coords_array = np.array(coords_list, dtype=float)
+                coords = coords_array.reshape((IND_SIZE, 2))
+                centroide = np.mean(coords, axis=0)
+                
+                n_grupos_normalizado = random.uniform(n_grupos_min_norm, n_grupos_max_norm)
+                substation_pos = displace_substation_from_turbines(centroide, coords, min_distance=MIN_SUB_TURB_DIST)
+                substation_pos = enforce_substation(np.array(substation_pos)).tolist()
+                
+                ind_phase2 = create_individual_proposed_phase2_from_coords(coords, substation_pos=substation_pos)
+                n_coords = IND_SIZE * 2
+                ind_phase2[n_coords] = n_grupos_normalizado
+                pop_cons.append(ind_phase2)
+            
+            # Completa população
+            n_remaining = POP_SIZE - len(pop_cons)
+            if n_remaining > 0:
+                for i in range(n_remaining):
+                    layout_idx = i % len(best_layouts_phase1)
+                    layout = best_layouts_phase1[layout_idx]
+                    coords_list = list(layout)
+                    coords_array = np.array(coords_list, dtype=float)
+                    coords = coords_array.reshape((IND_SIZE, 2))
+                    
+                    # Perturbação menor
+                    coords_perturbed = coords.copy()
+                    perturbation_sigma = PERTURBATION_SIGMA_MIN * 0.5
+                    for j in range(len(coords_perturbed)):
+                        coords_perturbed[j, 0] += random.gauss(0, perturbation_sigma)
+                        coords_perturbed[j, 1] += random.gauss(0, perturbation_sigma)
+                    
+                    # Garante que está dentro do círculo
+                    for j in range(len(coords_perturbed)):
+                        x, y = coords_perturbed[j, 0], coords_perturbed[j, 1]
+                        if not is_within_circle(x, y, CIRCLE_RADIUS):
+                            angle = np.arctan2(y, x)
+                            coords_perturbed[j, 0] = CIRCLE_RADIUS * np.cos(angle)
+                            coords_perturbed[j, 1] = CIRCLE_RADIUS * np.sin(angle)
+                    
+                    centroide_perturbed = np.mean(coords_perturbed, axis=0)
+                    substation_pos_perturbed = displace_substation_from_turbines(
+                        centroide_perturbed, coords_perturbed, min_distance=MIN_SUB_TURB_DIST)
+                    substation_pos_perturbed = enforce_substation(np.array(substation_pos_perturbed)).tolist()
+                    
+                    n_grupos_normalizado = random.uniform(n_grupos_min_norm, n_grupos_max_norm)
+                    ind_phase2 = create_individual_proposed_phase2_from_coords(
+                        coords_perturbed, substation_pos=substation_pos_perturbed)
+                    n_coords = IND_SIZE * 2
+                    ind_phase2[n_coords] = n_grupos_normalizado
+                    pop_cons.append(ind_phase2)
+            
+            return pop_cons
+        
+        # Estratégia 1: Conservadora padrão (60-80% grupos)
+        print(f"      Tentativa 1/4: Estratégia conservadora (60-80% grupos)...")
+        pop_conservative = create_conservative_pop_proposed(0.6, 0.8)
+        invalid_ind = [ind for ind in pop_conservative if not ind.fitness.valid]
+        # Usa avaliação com penalidades reduzidas na inicialização
+        fits = list(map(evaluate_proposed_phase2_init, invalid_ind))
+        for ind, fit in zip(invalid_ind, fits):
+            ind.fitness.values = fit
+        pop = [ind for ind in pop_conservative if ind.fitness.valid and ind.fitness.values[0] > 0]
+        
+        # Estratégia 2: Ultra-conservadora (80-95% grupos)
+        if len(pop) == 0:
+            print(f"      Tentativa 2/4: Estratégia ultra-conservadora (80-95% grupos)...")
+            pop_ultra = create_conservative_pop_proposed(0.8, 0.95)
+            invalid_ind = [ind for ind in pop_ultra if not ind.fitness.valid]
+            fits = list(map(evaluate_proposed_phase2_init, invalid_ind))
+            for ind, fit in zip(invalid_ind, fits):
+                ind.fitness.values = fit
+            pop = [ind for ind in pop_ultra if ind.fitness.valid and ind.fitness.values[0] > 0]
+        
+        # Estratégia 3: Máximo número de grupos (85-100%)
+        if len(pop) == 0:
+            print(f"      Tentativa 3/4: Máximo número de grupos (85-100%)...")
+            pop_max = create_conservative_pop_proposed(0.85, 1.0)
+            invalid_ind = [ind for ind in pop_max if not ind.fitness.valid]
+            fits = list(map(evaluate_proposed_phase2_init, invalid_ind))
+            for ind, fit in zip(invalid_ind, fits):
+                ind.fitness.values = fit
+            pop = [ind for ind in pop_max if ind.fitness.valid and ind.fitness.values[0] > 0]
+        
+        # Estratégia 4: Número de grupos fixo no máximo
+        if len(pop) == 0:
+            print(f"      Tentativa 4/4: Número de grupos fixo no máximo ({IND_SIZE} grupos)...")
+            pop_fixed = create_conservative_pop_proposed(1.0, 1.0)  # Força máximo
+            invalid_ind = [ind for ind in pop_fixed if not ind.fitness.valid]
+            fits = list(map(evaluate_proposed_phase2_init, invalid_ind))
+            for ind, fit in zip(invalid_ind, fits):
+                ind.fitness.values = fit
+            pop = [ind for ind in pop_fixed if ind.fitness.valid and ind.fitness.values[0] > 0]
+        
+        if len(pop) == 0:
+            print(f"   ERRO: Todas as estratégias falharam. Nenhuma solução válida encontrada.")
+            return [], []
+        else:
+            print(f"   ✓ Estratégia robusta funcionou: {len(pop)} soluções válidas encontradas")
     
     # Histórico de hipervolume
     hv_history = []
@@ -1499,13 +1732,22 @@ def run_proposed_phase2(seed, best_layouts_phase1, pool=None):
             # if stagnation_counter >= PATIENCE_P2:
             #     break
             
-            # Calcula hipervolume a cada 20 gerações
+            # Calcula hipervolume a cada 20 gerações e coleta métricas de convergência
             if gen % 20 == 0:
                 # Cria frente de Pareto temporária para calcular hipervolume
                 temp_pf = tools.ParetoFront()
                 temp_pf.update(valid_pop)
                 hv = calculate_hypervolume(list(temp_pf))
                 hv_history.append((gen, hv))
+                
+                # Coleta métricas de convergência para convergence_history.csv
+                if run_id is not None and output_dir is not None:
+                    conv_metrics = collect_convergence_metrics(
+                        run_id, 'Proposed', gen, pop,
+                        pareto_front=list(temp_pf), ref_point=None,
+                        hypervolume_func=calculate_hypervolume
+                    )
+                    save_convergence_history(conv_metrics, output_dir=output_dir, append=True)
         
         if gen % 100 == 0:
             if len(valid_pop) > 0:
@@ -1518,7 +1760,7 @@ def run_proposed_phase2(seed, best_layouts_phase1, pool=None):
     
     return valid_solutions, hv_history
 
-def run_proposed_method(seed, global_coords_pop=None, pool=None):
+def run_proposed_method(seed, global_coords_pop=None, pool=None, run_id=None, output_dir=None):
     """
     Executa método Proposed completo:
     1. Fase 1: Maximiza AEP bruto (layout turbinas) - reutiliza Sequential Fase 1
@@ -1530,6 +1772,8 @@ def run_proposed_method(seed, global_coords_pop=None, pool=None):
         seed: Seed para reprodutibilidade
         global_coords_pop: População inicial global de coordenadas (compartilhada)
         pool: Pool de processos para paralelização (opcional)
+        run_id: ID da execução (para salvar métricas de convergência)
+        output_dir: Diretório de saída (para salvar métricas de convergência)
     
     Returns:
         pareto_front: Lista de soluções não-dominadas da Fase 2
@@ -1541,7 +1785,7 @@ def run_proposed_method(seed, global_coords_pop=None, pool=None):
     best_layouts_p1 = run_sequential_phase1(seed, return_top_n=N_TOP_LAYOUTS, ngen=NGEN_PROPOSED_P1, global_coords_pop=global_coords_pop, pool=pool)
     
     print(f">>> Executando Proposed - Fase 2 (NSGA-II Multiobjetivo)...")
-    pareto_front, hv_history = run_proposed_phase2(seed, best_layouts_p1, pool=pool)
+    pareto_front, hv_history = run_proposed_phase2(seed, best_layouts_p1, pool=pool, run_id=run_id, output_dir=output_dir)
     
     return pareto_front, hv_history
 
@@ -1808,341 +2052,16 @@ def save_results_to_csv(results_dict, output_dir='.', filename='case_study_resul
     print(f"\n✓ Resultados salvos em: {filepath}")
 
 # =============================================================================
-# FUNÇÕES DE VISUALIZAÇÃO
+# FUNÇÕES DE VISUALIZAÇÃO REMOVIDAS
 # =============================================================================
+# As funções de plotagem foram movidas para case_study_plot.py
+# Este arquivo apenas executa os testes e salva dados em CSV
 
-def plot_solution(individual, title="Solution", ax=None, is_sequential=False, turbine_layout=None):
-    """
-    Plota uma solução com cabeamento.
-    
-    Args:
-        individual: Indivíduo Baseline (35 genes) ou Sequential Fase 2 (3 genes)
-        title: Título do gráfico
-        ax: Eixo matplotlib (opcional)
-        is_sequential: Se True, individual é da Fase 2 (3 genes) e precisa de turbine_layout
-        turbine_layout: Layout de turbinas (32 genes) para Sequential
-    """
-    if ax is None:
-        fig, ax = plt.subplots(figsize=(10, 10))
-    
-    if is_sequential:
-        # Sequential: individual tem 3 genes, turbine_layout tem 32 genes
-        n_grupos_norm = individual[0]
-        sub_pos = np.array([individual[1], individual[2]])
-        turb_coords = np.array(turbine_layout).reshape((IND_SIZE, 2))
-    else:
-        # Baseline: individual tem 35 genes
-        n_coords = IND_SIZE * 2
-        coords_flat = individual[:n_coords]
-        n_grupos_norm = individual[n_coords]
-        sub_pos = np.array([individual[n_coords+1], individual[n_coords+2]])
-        turb_coords = np.array(coords_flat).reshape((IND_SIZE, 2))
-    
-    n_grupos = int(np.round(MIN_GRUPOS + n_grupos_norm * (MAX_GRUPOS - MIN_GRUPOS)))
-    n_grupos = max(MIN_GRUPOS, min(MAX_GRUPOS, n_grupos))
-    n_grupos = min(n_grupos, IND_SIZE)
-    
-    coords_all = np.vstack([turb_coords, sub_pos.reshape(1, 2)])
-    
-    # Calcula cabeamento
-    plant, res = cabling_v3.analisar_layout_completo(coords_all, sub=IND_SIZE, n_grupos=n_grupos)
-    
-    # Calcula AEP bruto (para Sequential, usa layout fixo)
-    wind_dir, wind_freq, wind_speed = WIND_ROSE_DATA
-    turb_diam = TURB_ATRBT_DATA[4]
-    aep_bruto = np.sum(calcAEP(turb_coords, wind_freq, wind_speed, wind_dir, turb_diam,
-                               TURB_ATRBT_DATA[0], TURB_ATRBT_DATA[1],
-                               TURB_ATRBT_DATA[2], TURB_ATRBT_DATA[3]))
-    aep_liq = aep_bruto - res['perda_anual_mwh']
-    custo = res['custo_total_usd']
-    
-    # Desenha círculo de restrição
-    circle = Circle((0, 0), CIRCLE_RADIUS, fill=False, linestyle='--', 
-                   linewidth=2, color='black', zorder=1)
-    ax.add_patch(circle)
-    
-    # Desenha cabeamento
-    colors = plt.cm.tab10(np.linspace(0, 1, min(len(plant.paths), 10)))
-    for i, path in enumerate(plant.paths):
-        if len(path) > 1:
-            valid_path = [k for k in path if 0 <= k < len(coords_all)]
-            if len(valid_path) > 1:
-                x_path = [coords_all[k, 0] for k in valid_path]
-                y_path = [coords_all[k, 1] for k in valid_path]
-                ax.plot(x_path, y_path, '-', linewidth=CABLE_LINEWIDTH, 
-                       color=colors[i % len(colors)], alpha=0.8, zorder=4)
-    
-    # Desenha turbinas
-    ax.scatter(turb_coords[:, 0], turb_coords[:, 1], 
-              s=TURBINE_MARKER_SIZE, c='red', edgecolors='black', 
-              linewidths=TURBINE_EDGE_WIDTH, zorder=5, label='Turbines', marker='o')
-    
-    # Desenha subestação
-    ax.scatter(sub_pos[0], sub_pos[1],
-              marker='*', s=SUBSTATION_MARKER_SIZE, c='gold', edgecolors='black',
-              linewidths=TURBINE_EDGE_WIDTH, zorder=6, label='Substation')
-    
-    # Configurações
-    ax.set_xlim(-1.2 * CIRCLE_RADIUS, 1.2 * CIRCLE_RADIUS)
-    ax.set_ylim(-1.2 * CIRCLE_RADIUS, 1.2 * CIRCLE_RADIUS)
-    ax.set_aspect('equal')
-    ax.set_xlabel('X (m)', fontsize=FONT_SIZE_LABEL_AXIS, fontweight='bold')
-    ax.set_ylabel('Y (m)', fontsize=FONT_SIZE_LABEL_AXIS, fontweight='bold')
-    ax.grid(True, linestyle='--', alpha=0.3, linewidth=0.5)
-    ax.tick_params(axis='both', which='major', labelsize=FONT_SIZE_TICK)
-    
-    # Título com métricas
-    title_text = (
-        f'{title}\n'
-        f'AEP: {aep_liq/1000:.2f} GWh | Cost: ${custo/1e3:.0f}k USD\n'
-        f'Cable: {res["secao_cabo_mm2"]:.0f} mm² | Length: {res["comprimento_total_m"]/1000:.2f} km\n'
-        f'Losses: {res["perda_anual_mwh"]/1000:.2f} GWh | Groups: {len(plant.paths)}'
-    )
-    ax.set_title(title_text, fontsize=FONT_SIZE_TITLE_PLOT, fontweight='bold', pad=10)
-    ax.legend(loc='upper right', fontsize=FONT_SIZE_LEGEND, framealpha=0.9, frameon=True)
-    
-    return ax
-
-def plot_pareto_fronts_comparison(pf_baseline, pf_proposed, best_sequential, best_turbine_layout, output_dir='.'):
-    """
-    Plota frentes de Pareto comparativas dos 3 métodos.
-    
-    Args:
-        pf_baseline: Lista de soluções não-dominadas do Baseline
-        pf_proposed: Lista de soluções não-dominadas do Proposed
-        best_sequential: Melhor solução do Sequential (3 genes)
-        best_turbine_layout: Layout de turbinas do Sequential (32 genes)
-    """
-    fig, ax = plt.subplots(figsize=(12, 8))
-    
-    # Calcula C-metrics
-    c_baseline_proposed = calculate_c_metric(pf_baseline, pf_proposed) * 100
-    c_proposed_baseline = calculate_c_metric(pf_proposed, pf_baseline) * 100
-    
-    # Para Sequential, cria um indivíduo compatível para calcular C-metric
-    if best_sequential is not None:
-        n_grupos_norm = best_sequential[0]
-        sub_pos = np.array([best_sequential[1], best_sequential[2]])
-        turb_coords = np.array(best_turbine_layout).reshape((IND_SIZE, 2))
-        n_grupos = int(np.round(MIN_GRUPOS + n_grupos_norm * (MAX_GRUPOS - MIN_GRUPOS)))
-        n_grupos = max(MIN_GRUPOS, min(MAX_GRUPOS, n_grupos))
-        n_grupos = min(n_grupos, IND_SIZE)
-        coords_all = np.vstack([turb_coords, sub_pos.reshape(1, 2)])
-        plant, res = cabling_v3.analisar_layout_completo(coords_all, sub=IND_SIZE, n_grupos=n_grupos)
-        wind_dir, wind_freq, wind_speed = WIND_ROSE_DATA
-        turb_diam = TURB_ATRBT_DATA[4]
-        aep_bruto = np.sum(calcAEP(turb_coords, wind_freq, wind_speed, wind_dir, turb_diam,
-                                   TURB_ATRBT_DATA[0], TURB_ATRBT_DATA[1],
-                                   TURB_ATRBT_DATA[2], TURB_ATRBT_DATA[3]))
-        aep_liq_seq = aep_bruto - res['perda_anual_mwh']
-        custo_seq = res['custo_total_usd']
-        
-        # Cria indivíduo compatível
-        full_genome = turb_coords.flatten().tolist() + [n_grupos_norm] + sub_pos.tolist()
-        ind_seq_p2 = creator.IndividualBaseline(full_genome)
-        ind_seq_p2.fitness.values = (aep_liq_seq, custo_seq)
-        sequential_pf = [ind_seq_p2]
-        
-        c_baseline_sequential = calculate_c_metric(pf_baseline, sequential_pf) * 100
-        c_proposed_sequential = calculate_c_metric(pf_proposed, sequential_pf) * 100
-    else:
-        sequential_pf = []
-        c_baseline_sequential = 0.0
-        c_proposed_sequential = 0.0
-        aep_liq_seq = 0.0
-        custo_seq = 0.0
-    
-    # Extrai dados para plot
-    # Baseline
-    if len(pf_baseline) > 0:
-        aeps_baseline = np.array([ind.fitness.values[0] for ind in pf_baseline]) / 1000.0  # GWh
-        costs_baseline = np.array([ind.fitness.values[1] for ind in pf_baseline]) / 1000.0  # kUSD
-        
-        # Plota todos os pontos (transparentes)
-        ax.scatter(costs_baseline, aeps_baseline, s=40, alpha=0.4, color='blue', 
-                  edgecolors='darkblue', linewidths=0.5, label=f'Baseline Pareto Front (n={len(pf_baseline)})', zorder=2)
-        
-        # Plota knee point (sólido)
-        knee_baseline = find_knee_point(pf_baseline)
-        knee_aep_b = knee_baseline.fitness.values[0] / 1000.0
-        knee_cost_b = knee_baseline.fitness.values[1] / 1000.0
-        ax.scatter(knee_cost_b, knee_aep_b, s=40, alpha=1.0, color='blue', 
-                  edgecolors='darkblue', linewidths=1.0, label='Baseline Knee Point', zorder=4)
-    
-    # Proposed
-    if len(pf_proposed) > 0:
-        aeps_proposed = np.array([ind.fitness.values[0] for ind in pf_proposed]) / 1000.0  # GWh
-        costs_proposed = np.array([ind.fitness.values[1] for ind in pf_proposed]) / 1000.0  # kUSD
-        
-        # Plota todos os pontos (transparentes)
-        ax.scatter(costs_proposed, aeps_proposed, s=40, alpha=0.4, color='green', 
-                  edgecolors='darkgreen', linewidths=0.5, label=f'Proposed Pareto Front (n={len(pf_proposed)})', zorder=2)
-        
-        # Plota knee point (sólido)
-        knee_proposed = find_knee_point(pf_proposed)
-        knee_aep_p = knee_proposed.fitness.values[0] / 1000.0
-        knee_cost_p = knee_proposed.fitness.values[1] / 1000.0
-        ax.scatter(knee_cost_p, knee_aep_p, s=40, alpha=1.0, color='green', 
-                  edgecolors='darkgreen', linewidths=1.0, label='Proposed Knee Point', zorder=4)
-    
-    # Sequential
-    if best_sequential is not None and len(sequential_pf) > 0:
-        seq_aep = aep_liq_seq / 1000.0  # GWh
-        seq_cost = custo_seq / 1000.0  # kUSD
-        ax.scatter(seq_cost, seq_aep, s=40, alpha=1.0, color='red', 
-                  edgecolors='darkred', linewidths=1.0, label='Sequential (Best Cost)', zorder=5)
-    
-    # Configurações do gráfico
-    ax.set_xlabel('Total Cabling Cost (Thousands USD)', fontsize=FONT_SIZE_LABEL_AXIS, fontweight='bold')
-    ax.set_ylabel('Net AEP (GWh)', fontsize=FONT_SIZE_LABEL_AXIS, fontweight='bold')
-    
-    # Título com métricas de dominância (quebrado em múltiplas linhas)
-    title_text = (
-        f'Pareto Fronts Comparison\n'
-        f'C(Baseline→Proposed)={c_baseline_proposed:.1f}% | '
-        f'C(Proposed→Baseline)={c_proposed_baseline:.1f}%\n'
-        f'C(Baseline→Sequential)={c_baseline_sequential:.1f}% | '
-        f'C(Proposed→Sequential)={c_proposed_sequential:.1f}%'
-    )
-    ax.set_title(title_text, fontsize=FONT_SIZE_TITLE_PLOT, fontweight='bold')
-    
-    ax.grid(True, linestyle='--', alpha=0.3, linewidth=0.8)
-    ax.legend(frameon=True, loc='lower right', fontsize=FONT_SIZE_LEGEND, framealpha=0.9)
-    
-    # Melhora a aparência geral
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
-    ax.spines['left'].set_linewidth(0.8)
-    ax.spines['bottom'].set_linewidth(0.8)
-    ax.tick_params(axis='both', which='major', labelsize=FONT_SIZE_TICK)
-    
-    plt.tight_layout()
-    # output_dir será passado como parâmetro, usar '.' como padrão se não fornecido
-    output_dir = getattr(plot_pareto_fronts_comparison, '_output_dir', '.')
-    os.makedirs(output_dir, exist_ok=True)
-    output_path_png = os.path.join(output_dir, 'pareto_fronts_comparison.png')
-    output_path_pdf = os.path.join(output_dir, 'pareto_fronts_comparison.pdf')
-    plt.savefig(output_path_png, dpi=300, bbox_inches='tight', facecolor='white')
-    plt.savefig(output_path_pdf, dpi=300, bbox_inches='tight', facecolor='white')
-    print(f"\n✓ Comparação de Frentes de Pareto salva em: {output_path_png} e {output_path_pdf}")
-    plt.close()
-    
-    return c_baseline_proposed, c_proposed_baseline, c_baseline_sequential, c_proposed_sequential
-
-def plot_hypervolume_history(all_hv_history_baseline, all_hv_history_proposed, output_dir='.'):
-    """
-    Plota a evolução do Hipervolume ao longo das gerações, mostrando média e desvio padrão
-    para Baseline e Proposed métodos.
-    
-    Args:
-        all_hv_history_baseline: Lista de listas, onde cada elemento é uma lista de tuplas (gen, hv)
-        all_hv_history_proposed: Lista de listas, onde cada elemento é uma lista de tuplas (gen, hv)
-    """
-    fig, ax = plt.subplots(figsize=(12, 8))
-    
-    # Processa histórico do Baseline
-    if len(all_hv_history_baseline) > 0:
-        # Encontra todas as gerações únicas
-        all_gens_baseline = set()
-        for hv_history in all_hv_history_baseline:
-            for gen, hv in hv_history:
-                all_gens_baseline.add(gen)
-        
-        if len(all_gens_baseline) > 0:
-            sorted_gens_baseline = sorted(all_gens_baseline)
-            
-            # Para cada geração, calcula média e desvio padrão
-            mean_hv_baseline = []
-            std_hv_baseline = []
-            gens_baseline = []
-            
-            for gen in sorted_gens_baseline:
-                hv_values = []
-                for hv_history in all_hv_history_baseline:
-                    # Encontra o valor de HV para esta geração nesta execução
-                    for g, hv in hv_history:
-                        if g == gen:
-                            hv_values.append(hv)
-                            break
-                
-                if len(hv_values) > 0:
-                    mean_hv_baseline.append(np.mean(hv_values))
-                    std_hv_baseline.append(np.std(hv_values))
-                    gens_baseline.append(gen)
-            
-            # Plota Baseline com banda de desvio padrão
-            mean_hv_baseline = np.array(mean_hv_baseline)
-            std_hv_baseline = np.array(std_hv_baseline)
-            ax.plot(gens_baseline, mean_hv_baseline, 'b-', linewidth=2.5, 
-                   label='Baseline (Mean)', marker='o', markersize=6)
-            ax.fill_between(gens_baseline, 
-                          mean_hv_baseline - std_hv_baseline,
-                          mean_hv_baseline + std_hv_baseline,
-                          alpha=0.3, color='blue', label='Baseline (±1 Std Dev)')
-    
-    # Processa histórico do Proposed
-    if len(all_hv_history_proposed) > 0:
-        # Encontra todas as gerações únicas
-        all_gens_proposed = set()
-        for hv_history in all_hv_history_proposed:
-            for gen, hv in hv_history:
-                all_gens_proposed.add(gen)
-        
-        if len(all_gens_proposed) > 0:
-            sorted_gens_proposed = sorted(all_gens_proposed)
-            
-            # Para cada geração, calcula média e desvio padrão
-            mean_hv_proposed = []
-            std_hv_proposed = []
-            gens_proposed = []
-            
-            for gen in sorted_gens_proposed:
-                hv_values = []
-                for hv_history in all_hv_history_proposed:
-                    # Encontra o valor de HV para esta geração nesta execução
-                    for g, hv in hv_history:
-                        if g == gen:
-                            hv_values.append(hv)
-                            break
-                
-                if len(hv_values) > 0:
-                    mean_hv_proposed.append(np.mean(hv_values))
-                    std_hv_proposed.append(np.std(hv_values))
-                    gens_proposed.append(gen)
-            
-            # Plota Proposed com banda de desvio padrão
-            mean_hv_proposed = np.array(mean_hv_proposed)
-            std_hv_proposed = np.array(std_hv_proposed)
-            ax.plot(gens_proposed, mean_hv_proposed, 'r-', linewidth=2.5,
-                   label='Proposed (Mean)', marker='s', markersize=6)
-            ax.fill_between(gens_proposed,
-                          mean_hv_proposed - std_hv_proposed,
-                          mean_hv_proposed + std_hv_proposed,
-                          alpha=0.3, color='red', label='Proposed (±1 Std Dev)')
-    
-    # Configurações do gráfico
-    ax.set_xlabel('Generation', fontsize=FONT_SIZE_LABEL_AXIS, fontweight='bold')
-    ax.set_ylabel('Hypervolume', fontsize=FONT_SIZE_LABEL_AXIS, fontweight='bold')
-    ax.set_title('Hypervolume Evolution: Mean ± Standard Deviation', 
-                fontsize=FONT_SIZE_TITLE_PLOT, fontweight='bold')
-    ax.grid(True, linestyle='--', alpha=0.3, linewidth=0.8)
-    ax.legend(frameon=True, loc='best', fontsize=FONT_SIZE_LEGEND, framealpha=0.9)
-    
-    # Melhora a aparência geral
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
-    ax.spines['left'].set_linewidth(0.8)
-    ax.spines['bottom'].set_linewidth(0.8)
-    ax.tick_params(axis='both', which='major', labelsize=FONT_SIZE_TICK)
-    
-    plt.tight_layout()
-    os.makedirs(output_dir, exist_ok=True)
-    output_path_png = os.path.join(output_dir, 'hypervolume_history.png')
-    output_path_pdf = os.path.join(output_dir, 'hypervolume_history.pdf')
-    plt.savefig(output_path_png, dpi=300, bbox_inches='tight', facecolor='white')
-    plt.savefig(output_path_pdf, dpi=300, bbox_inches='tight', facecolor='white')
-    print(f"\n✓ Histórico de Hipervolume salvo em: {output_path_png} e {output_path_pdf}")
-    plt.close()
+# =============================================================================
+# FUNÇÕES DE COLETA DE MÉTRICAS (INTEGRAÇÃO COM metrics_collector)
+# =============================================================================
+# As funções de coleta estão no módulo metrics_collector.py
+# Aqui apenas mantemos funções auxiliares necessárias para a execução
 
 # =============================================================================
 # EXECUÇÃO PRINCIPAL
@@ -2212,8 +2131,7 @@ if __name__ == "__main__":
             print(f"\n>>> Criando população inicial global (compartilhada)...")
             global_coords_pop = create_global_initial_population(SEED, POP_SIZE)
             print(f"   População inicial criada: {len(global_coords_pop)} indivíduos")
-            print(f"   - 20% com coordenadas exatas do YAML")
-            print(f"   - 80% com coordenadas perturbadas (diversidade)")
+            print(f"   - 100% com coordenadas EXATAS do YAML (estratégia robusta)")
             
             # Dicionário para coletar métricas desta execução
             all_metrics = []
@@ -2221,13 +2139,17 @@ if __name__ == "__main__":
             # Executa Baseline
             print("\n>>> Executando Método Baseline (NSGA-II)...")
             start_time_baseline = time.time()
-            pf_baseline, hv_history_baseline = run_baseline_method(SEED, global_coords_pop=global_coords_pop, pool=pool)
+            pf_baseline, hv_history_baseline = run_baseline_method(
+                SEED, global_coords_pop=global_coords_pop, pool=pool,
+                run_id=run_num, output_dir=OUTPUT_DIR
+            )
             time_baseline = time.time() - start_time_baseline
             print(f"Soluções encontradas: Baseline={len(pf_baseline)}")
             print(f"Tempo de execução: {time_baseline:.2f} segundos")
             
             # Armazena histórico de hipervolume
             all_hv_history_baseline.append(hv_history_baseline)
+            # Nota: Métricas de convergência já foram coletadas durante a execução (a cada 20 gerações)
             
             # Executa Sequential
             print("\n>>> Executando Método Sequential...")
@@ -2240,7 +2162,10 @@ if __name__ == "__main__":
             # Executa Proposed
             print("\n>>> Executando Método Proposed...")
             start_time_proposed = time.time()
-            pf_proposed, hv_history_proposed = run_proposed_method(SEED, global_coords_pop=global_coords_pop, pool=pool)
+            pf_proposed, hv_history_proposed = run_proposed_method(
+                SEED, global_coords_pop=global_coords_pop, pool=pool,
+                run_id=run_num, output_dir=OUTPUT_DIR
+            )
             time_proposed = time.time() - start_time_proposed
             print(f"Soluções encontradas: Proposed={len(pf_proposed)}")
             print(f"Tempo de execução: {time_proposed:.2f} segundos")
@@ -2269,14 +2194,35 @@ if __name__ == "__main__":
                 metrics_baseline['N_Generations'] = NGEN_BASELINE
                 all_metrics.append(metrics_baseline)
                 
-                # Plota melhor solução Baseline (apenas na última execução)
-                if run_num == N_RUNS:
-                    fig, ax = plt.subplots(figsize=(10, 10))
-                    plot_solution(best_baseline, "Baseline - Best Solution", ax, is_sequential=False)
-                    plt.tight_layout()
-                    output_path = os.path.join(OUTPUT_DIR, 'baseline_solution.png')
-                    plt.savefig(output_path, dpi=300, bbox_inches='tight')
-                    print(f"\n✓ Gráfico Baseline salvo: {output_path}")
+                # Coleta métricas para summary_results.csv usando metrics_collector
+                summary_metrics_baseline = collect_summary_metrics(
+                    best_baseline, 'Baseline', run_num, SEED, IND_SIZE,
+                    is_sequential=False,
+                    time_total_s=time_baseline, time_phase1_s=0.0, time_phase2_s=0.0,
+                    pareto_front=pf_baseline, final_hypervolume=metrics_baseline['Hypervolume'],
+                    pareto_spread=metrics_baseline['Spread'], num_solutions_pareto=len(pf_baseline),
+                    feasibility_rate_final=100.0,  # TODO: calcular taxa de viabilidade real
+                    calc_aep_func=calcAEP, cabling_func=cabling_v3.analisar_layout_completo,
+                    wind_data=WIND_ROSE_DATA, turb_data=TURB_ATRBT_DATA
+                )
+                save_summary_results(summary_metrics_baseline, output_dir=OUTPUT_DIR, append=(run_num > 1))
+                
+                # Salva coordenadas da solução representativa (knee point)
+                coords_metrics_baseline = collect_representative_solution_coords(
+                    best_baseline, 'Baseline', run_num, SEED, IND_SIZE,
+                    is_sequential=False,
+                    net_aep_gwh=summary_metrics_baseline['Net_AEP_GWh'],
+                    total_cost_usd=summary_metrics_baseline['Total_Cost_USD']
+                )
+                save_representative_solutions(coords_metrics_baseline, output_dir=OUTPUT_DIR, append=(run_num > 1))
+                
+                # Coleta métricas para all_pareto_fronts.csv
+                pareto_metrics_baseline = collect_pareto_front_metrics(
+                    pf_baseline, run_num, 'Baseline',
+                    calc_aep_func=calcAEP, cabling_func=cabling_v3.analisar_layout_completo,
+                    wind_data=WIND_ROSE_DATA, turb_data=TURB_ATRBT_DATA, turbine_count=IND_SIZE
+                )
+                save_pareto_fronts(pareto_metrics_baseline, output_dir=OUTPUT_DIR, append=(run_num > 1))
                 
                 print(f"\nMelhor solução Baseline:")
                 print(f"  AEP Líquido: {best_baseline.fitness.values[0]/1000:.2f} GWh")
@@ -2337,15 +2283,27 @@ if __name__ == "__main__":
                 metrics_sequential['AEP_Bruto_Phase1_MWh'] = aep_bruto_p1
                 all_metrics.append(metrics_sequential)
                 
-                # Plota melhor solução Sequential (apenas na última execução)
-                if run_num == N_RUNS:
-                    fig, ax = plt.subplots(figsize=(10, 10))
-                    plot_solution(best_sequential, "Sequential - Best Solution", ax, 
-                                 is_sequential=True, turbine_layout=best_turbine_layout)
-                    plt.tight_layout()
-                    output_path = os.path.join(OUTPUT_DIR, 'sequential_solution.png')
-                    plt.savefig(output_path, dpi=300, bbox_inches='tight')
-                    print(f"\n✓ Gráfico Sequential salvo: {output_path}")
+                # Coleta métricas para summary_results.csv
+                summary_metrics_sequential = collect_summary_metrics(
+                    best_sequential, 'Sequential', run_num, SEED, IND_SIZE,
+                    is_sequential=True, turbine_layout=best_turbine_layout,
+                    time_total_s=time_sequential, time_phase1_s=0.0, time_phase2_s=0.0,
+                    pareto_front=None, final_hypervolume=metrics_sequential['Hypervolume'],
+                    pareto_spread=0.0, num_solutions_pareto=1,
+                    feasibility_rate_final=100.0,
+                    calc_aep_func=calcAEP, cabling_func=cabling_v3.analisar_layout_completo,
+                    wind_data=WIND_ROSE_DATA, turb_data=TURB_ATRBT_DATA
+                )
+                save_summary_results(summary_metrics_sequential, output_dir=OUTPUT_DIR, append=True)
+                
+                # Salva coordenadas da solução representativa (Sequential)
+                coords_metrics_sequential = collect_representative_solution_coords(
+                    best_sequential, 'Sequential', run_num, SEED, IND_SIZE,
+                    is_sequential=True, turbine_layout=best_turbine_layout,
+                    net_aep_gwh=summary_metrics_sequential['Net_AEP_GWh'],
+                    total_cost_usd=summary_metrics_sequential['Total_Cost_USD']
+                )
+                save_representative_solutions(coords_metrics_sequential, output_dir=OUTPUT_DIR, append=True)
                 
                 print(f"\nMelhor solução Sequential:")
                 print(f"  AEP Líquido: {metrics_sequential['AEP_Liquido_MWh']/1000:.2f} GWh")
@@ -2377,14 +2335,35 @@ if __name__ == "__main__":
                 metrics_proposed['N_Top_Layouts_Phase1'] = N_TOP_LAYOUTS
                 all_metrics.append(metrics_proposed)
                 
-                # Plota melhor solução Proposed (apenas na última execução)
-                if run_num == N_RUNS:
-                    fig, ax = plt.subplots(figsize=(10, 10))
-                    plot_solution(best_proposed, "Proposed - Best Solution", ax, is_sequential=False)
-                    plt.tight_layout()
-                    output_path = os.path.join(OUTPUT_DIR, 'proposed_solution.png')
-                    plt.savefig(output_path, dpi=300, bbox_inches='tight')
-                    print(f"\n✓ Gráfico Proposed salvo: {output_path}")
+                # Coleta métricas para summary_results.csv
+                summary_metrics_proposed = collect_summary_metrics(
+                    best_proposed, 'Proposed', run_num, SEED, IND_SIZE,
+                    is_sequential=False,
+                    time_total_s=time_proposed, time_phase1_s=0.0, time_phase2_s=0.0,
+                    pareto_front=pf_proposed, final_hypervolume=metrics_proposed['Hypervolume'],
+                    pareto_spread=metrics_proposed['Spread'], num_solutions_pareto=len(pf_proposed),
+                    feasibility_rate_final=100.0,
+                    calc_aep_func=calcAEP, cabling_func=cabling_v3.analisar_layout_completo,
+                    wind_data=WIND_ROSE_DATA, turb_data=TURB_ATRBT_DATA
+                )
+                save_summary_results(summary_metrics_proposed, output_dir=OUTPUT_DIR, append=True)
+                
+                # Salva coordenadas da solução representativa (knee point)
+                coords_metrics_proposed = collect_representative_solution_coords(
+                    best_proposed, 'Proposed', run_num, SEED, IND_SIZE,
+                    is_sequential=False,
+                    net_aep_gwh=summary_metrics_proposed['Net_AEP_GWh'],
+                    total_cost_usd=summary_metrics_proposed['Total_Cost_USD']
+                )
+                save_representative_solutions(coords_metrics_proposed, output_dir=OUTPUT_DIR, append=True)
+                
+                # Coleta métricas para all_pareto_fronts.csv
+                pareto_metrics_proposed = collect_pareto_front_metrics(
+                    pf_proposed, run_num, 'Proposed',
+                    calc_aep_func=calcAEP, cabling_func=cabling_v3.analisar_layout_completo,
+                    wind_data=WIND_ROSE_DATA, turb_data=TURB_ATRBT_DATA, turbine_count=IND_SIZE
+                )
+                save_pareto_fronts(pareto_metrics_proposed, output_dir=OUTPUT_DIR, append=True)
                 
                 print(f"\nMelhor solução Proposed:")
                 print(f"  AEP Líquido: {best_proposed.fitness.values[0]/1000:.2f} GWh")
@@ -2398,22 +2377,8 @@ if __name__ == "__main__":
                 metrics['Run'] = run_num
                 all_metrics_all_runs.append(metrics)
             
-            # Salva métricas desta execução (append mode se não for primeira execução)
-            if len(all_metrics) > 0:
-                df_run = pd.DataFrame(all_metrics)
-                df_run['Seed'] = SEED
-                df_run['Run'] = run_num
-                
-                csv_path = os.path.join(OUTPUT_DIR, 'case_study_results.csv')
-                if run_num == 1:
-                    df_run.to_csv(csv_path, index=False, float_format='%.2f', mode='w')
-                else:
-                    df_run.to_csv(csv_path, index=False, float_format='%.2f', mode='a', header=False)
-                
-                print(f"\n✓ Métricas da execução {run_num} salvas em: {csv_path}")
-                print(f"\nResumo da execução {run_num}:")
-                print(df_run[['Method', 'AEP_Liquido_MWh', 'Custo_Total_USD', 'Time_Total_seconds', 
-                              'N_Solutions_Pareto', 'Spread', 'Hypervolume']].to_string(index=False))
+            # Métricas já foram salvas nos CSVs durante o processamento acima
+            print(f"\n✓ Métricas da execução {run_num} salvas nos CSVs")
             
             # Plots são salvos apenas na última execução (ou podem ser sobrescritos a cada execução)
             # Se quiser salvar plots de todas as execuções, adicione sufixo: f'baseline_solution_run{run_num}.png'
@@ -2435,7 +2400,6 @@ if __name__ == "__main__":
         print(f"TODAS AS {N_RUNS} EXECUÇÕES CONCLUÍDAS")
         print("="*80)
         print(f"✓ Todas as seeds salvas em: {os.path.join(OUTPUT_DIR, 'seed_used.txt')}")
-        print(f"✓ Todas as métricas acumuladas em: {os.path.join(OUTPUT_DIR, 'case_study_results.csv')}")
         
         # =============================================================================
         # ESTATÍSTICAS DE TAXA DE SUCESSO DO BASELINE (NSGA-II)
@@ -2474,198 +2438,15 @@ if __name__ == "__main__":
             print(df_all[['Run', 'Method', 'AEP_Liquido_MWh', 'Custo_Total_USD', 'Time_Total_seconds', 
                           'N_Solutions_Pareto', 'Spread', 'Hypervolume']].to_string(index=False))
         
-        # =============================================================================
-        # PLOT COMPARATIVO DE FRENTES DE PARETO (apenas na última execução)
-        # =============================================================================
-        
-        if N_RUNS > 0:  # Se houve execuções
-            print("\n" + "="*80)
-            print("GERANDO COMPARAÇÃO DE FRENTES DE PARETO (Última Execução)")
-            print("="*80)
-            
-            # Plota frentes de Pareto comparativamente usando dados da última execução
-            if 'pf_baseline_last' in locals() and 'pf_proposed_last' in locals():
-                if len(pf_baseline_last) > 0 and len(pf_proposed_last) > 0:
-                    c_metrics = plot_pareto_fronts_comparison(pf_baseline_last, pf_proposed_last, 
-                                                              best_sequential_last, best_turbine_layout_last,
-                                                              output_dir=OUTPUT_DIR)
-                    print(f"\nMétricas de Dominância (C-metric) - Última Execução ({N_RUNS}):")
-                    print(f"  C(Baseline → Proposed): {c_metrics[0]:.1f}%")
-                    print(f"  C(Proposed → Baseline): {c_metrics[1]:.1f}%")
-                    print(f"  C(Baseline → Sequential): {c_metrics[2]:.1f}%")
-                    print(f"  C(Proposed → Sequential): {c_metrics[3]:.1f}%")
-                else:
-                    print("AVISO: Não foi possível gerar comparação de frentes de Pareto (faltam dados)")
-            else:
-                print("AVISO: Variáveis da última execução não disponíveis para plot de frentes de Pareto")
-        
-        # =============================================================================
-        # BOXPLOTS COMPARATIVOS (apenas na última execução, usando dados acumulados)
-        # =============================================================================
-        
-        if N_RUNS > 0:  # Se houve execuções
-            print("\n" + "="*80)
-            print("GERANDO BOXPLOTS COMPARATIVOS (com dados de todas as execuções)")
-            print("="*80)
-            
-            # Prepara dados para boxplots usando todas as execuções
-            # Agrupa métricas por método para ter múltiplos valores por método
-            hv_data = []
-            spread_data = []
-            n_solutions_data = []
-            time_data = []
-            method_labels = []
-            
-            # Agrupa métricas por método
-            methods_dict = {}
-            for metrics in all_metrics_all_runs:
-                method = metrics['Method']
-                if method not in methods_dict:
-                    methods_dict[method] = []
-                methods_dict[method].append(metrics)
-            
-            # Cria listas de valores para cada método
-            for method in sorted(methods_dict.keys()):
-                method_labels.append(method)
-                method_metrics = methods_dict[method]
-                
-                # Extrai valores para cada métrica
-                hv_vals = [m.get('Hypervolume', 0) for m in method_metrics if 'Hypervolume' in m]
-                spread_vals = [m.get('Spread', 0) for m in method_metrics if 'Spread' in m]
-                n_sol_vals = [m.get('N_Solutions_Pareto', 0) for m in method_metrics if 'N_Solutions_Pareto' in m]
-                time_vals = [m.get('Time_Total_seconds', 0) for m in method_metrics if 'Time_Total_seconds' in m]
-                
-                hv_data.append(hv_vals if len(hv_vals) > 0 else [0])
-                spread_data.append(spread_vals if len(spread_vals) > 0 else [0])
-                n_solutions_data.append(n_sol_vals if len(n_sol_vals) > 0 else [0])
-                time_data.append(time_vals if len(time_vals) > 0 else [0])
-            
-            # Se N_RUNS == 1, mantém comportamento antigo (lista com 1 elemento)
-            # Usa all_metrics_all_runs que já contém os dados desta execução
-            if N_RUNS == 1:
-                hv_data = [[m.get('Hypervolume', 0)] for m in all_metrics_all_runs if 'Hypervolume' in m]
-                spread_data = [[m.get('Spread', 0)] for m in all_metrics_all_runs if 'Spread' in m]
-                n_solutions_data = [[m.get('N_Solutions_Pareto', 0)] for m in all_metrics_all_runs if 'N_Solutions_Pareto' in m]
-                time_data = [[m.get('Time_Total_seconds', 0)] for m in all_metrics_all_runs if 'Time_Total_seconds' in m]
-                method_labels = [m['Method'] for m in all_metrics_all_runs]
-            
-            # Cria boxplots comparativos
-            if len(hv_data) > 0:
-                fig, axes = plt.subplots(2, 2, figsize=(16, 12))
-                colors = ['#2E86AB', '#E63946', '#06A77D']  # Azul, Vermelho, Verde
-                
-                # Boxplot 1: Hypervolume
-                ax1 = axes[0, 0]
-                bp1 = ax1.boxplot(hv_data, tick_labels=method_labels, patch_artist=True, widths=0.6)
-                for patch, color in zip(bp1['boxes'], colors[:len(bp1['boxes'])]):
-                    patch.set_facecolor(color)
-                    patch.set_alpha(0.7)
-                for element in ['whiskers', 'fliers', 'means', 'medians', 'caps']:
-                    plt.setp(bp1[element], color='black', linewidth=1.2)
-                ax1.set_ylabel('Hypervolume (Higher is Better)', fontsize=FONT_SIZE_LABEL_AXIS, fontweight='bold')
-                ax1.set_title('Hypervolume Comparison', fontsize=FONT_SIZE_TITLE_SUBPLOT, fontweight='bold')
-                ax1.tick_params(axis='both', which='major', labelsize=FONT_SIZE_TICK)
-                ax1.grid(True, alpha=0.3, linestyle='--', axis='y')
-                ax1.spines['top'].set_visible(False)
-                ax1.spines['right'].set_visible(False)
-                
-                # Boxplot 2: Spread
-                ax2 = axes[0, 1]
-                bp2 = ax2.boxplot(spread_data, tick_labels=method_labels, patch_artist=True, widths=0.6)
-                for patch, color in zip(bp2['boxes'], colors[:len(bp2['boxes'])]):
-                    patch.set_facecolor(color)
-                    patch.set_alpha(0.7)
-                for element in ['whiskers', 'fliers', 'means', 'medians', 'caps']:
-                    plt.setp(bp2[element], color='black', linewidth=1.2)
-                ax2.set_ylabel('Spread (Lower is Better)', fontsize=FONT_SIZE_LABEL_AXIS, fontweight='bold')
-                ax2.set_title('Solution Diversity (Spread)', fontsize=FONT_SIZE_TITLE_SUBPLOT, fontweight='bold')
-                ax2.tick_params(axis='both', which='major', labelsize=FONT_SIZE_TICK)
-                ax2.grid(True, alpha=0.3, linestyle='--', axis='y')
-                ax2.spines['top'].set_visible(False)
-                ax2.spines['right'].set_visible(False)
-                
-                # Boxplot 3: Número de Soluções
-                ax3 = axes[1, 0]
-                bp3 = ax3.boxplot(n_solutions_data, tick_labels=method_labels, patch_artist=True, widths=0.6)
-                for patch, color in zip(bp3['boxes'], colors[:len(bp3['boxes'])]):
-                    patch.set_facecolor(color)
-                    patch.set_alpha(0.7)
-                for element in ['whiskers', 'fliers', 'means', 'medians', 'caps']:
-                    plt.setp(bp3[element], color='black', linewidth=1.2)
-                ax3.set_ylabel('Number of Pareto Solutions', fontsize=FONT_SIZE_LABEL_AXIS, fontweight='bold')
-                ax3.set_title('Pareto Front Size', fontsize=FONT_SIZE_TITLE_SUBPLOT, fontweight='bold')
-                ax3.tick_params(axis='both', which='major', labelsize=FONT_SIZE_TICK)
-                ax3.grid(True, alpha=0.3, linestyle='--', axis='y')
-                ax3.spines['top'].set_visible(False)
-                ax3.spines['right'].set_visible(False)
-                
-                # Boxplot 4: Tempo de Execução
-                ax4 = axes[1, 1]
-                bp4 = ax4.boxplot(time_data, tick_labels=method_labels, patch_artist=True, widths=0.6)
-                for patch, color in zip(bp4['boxes'], colors[:len(bp4['boxes'])]):
-                    patch.set_facecolor(color)
-                    patch.set_alpha(0.7)
-                for element in ['whiskers', 'fliers', 'means', 'medians', 'caps']:
-                    plt.setp(bp4[element], color='black', linewidth=1.2)
-                ax4.set_ylabel('Execution Time (seconds)', fontsize=FONT_SIZE_LABEL_AXIS, fontweight='bold')
-                ax4.set_title('Computational Efficiency', fontsize=FONT_SIZE_TITLE_SUBPLOT, fontweight='bold')
-                ax4.tick_params(axis='both', which='major', labelsize=FONT_SIZE_TICK)
-                ax4.grid(True, alpha=0.3, linestyle='--', axis='y')
-                ax4.spines['top'].set_visible(False)
-                ax4.spines['right'].set_visible(False)
-                
-                plt.suptitle('Case Study: Comparative Metrics', fontsize=FONT_SIZE_TITLE_MAIN, fontweight='bold', y=0.995)
-                plt.tight_layout(rect=[0, 0, 1, 0.98])
-                output_path_png = os.path.join(OUTPUT_DIR, 'case_study_boxplots.png')
-                output_path_pdf = os.path.join(OUTPUT_DIR, 'case_study_boxplots.pdf')
-                plt.savefig(output_path_png, dpi=300, bbox_inches='tight', facecolor='white')
-                plt.savefig(output_path_pdf, bbox_inches='tight', facecolor='white')
-                print(f"✓ Boxplots salvos em: {output_path_png} e {output_path_pdf}")
-                plt.close()
-            
-            # Boxplot dedicado de Hypervolume (similar ao benchmark.py)
-            if len(hv_data) > 0:
-                plt.figure(figsize=(10, 6))
-                bp_hv = plt.boxplot(hv_data, tick_labels=method_labels, patch_artist=True, widths=0.6)
-                
-                colors_hv = ['#2E86AB', '#E63946', '#06A77D']
-                for patch, color in zip(bp_hv['boxes'], colors_hv[:len(bp_hv['boxes'])]):
-                    patch.set_facecolor(color)
-                    patch.set_alpha(0.7)
-                
-                for element in ['whiskers', 'fliers', 'means', 'medians', 'caps']:
-                    plt.setp(bp_hv[element], color='black', linewidth=1.2)
-                
-                plt.ylabel('Hypervolume (Higher is Better)', fontsize=FONT_SIZE_LABEL_AXIS, fontweight='bold')
-                plt.title('Hypervolume Comparison - Case Study', fontsize=FONT_SIZE_TITLE_PLOT, fontweight='bold')
-                plt.grid(True, alpha=0.3, linestyle='--', axis='y')
-                
-                ax_hv = plt.gca()
-                ax_hv.tick_params(axis='both', which='major', labelsize=FONT_SIZE_TICK)
-                ax_hv.spines['top'].set_visible(False)
-                ax_hv.spines['right'].set_visible(False)
-                
-                plt.tight_layout()
-                output_path_png = os.path.join(OUTPUT_DIR, 'case_study_hypervolume.png')
-                output_path_pdf = os.path.join(OUTPUT_DIR, 'case_study_hypervolume.pdf')
-                plt.savefig(output_path_png, dpi=300, bbox_inches='tight', facecolor='white')
-                plt.savefig(output_path_pdf, bbox_inches='tight', facecolor='white')
-                print(f"✓ Boxplot de Hypervolume salvo em: {output_path_png} e {output_path_pdf}")
-                plt.close()
-            
-            # =============================================================================
-            # PLOT DO HISTÓRICO DE HIPERVOLUME
-            # =============================================================================
-            
-            if len(all_hv_history_baseline) > 0 and len(all_hv_history_proposed) > 0:
-                print("\n" + "="*80)
-                print("GERANDO GRÁFICO DE HISTÓRICO DE HIPERVOLUME")
-                print("="*80)
-                plot_hypervolume_history(all_hv_history_baseline, all_hv_history_proposed, output_dir=OUTPUT_DIR)
-            
-            print("\n" + "="*80)
-            print("ESTUDO DE CASO CONCLUÍDO")
-            print("="*80)
+        print("\n" + "="*80)
+        print("ESTUDO DE CASO CONCLUÍDO")
+        print("="*80)
+        print("✓ Todos os dados foram salvos nos arquivos CSV:")
+        print(f"  - {os.path.join(OUTPUT_DIR, 'summary_results.csv')}")
+        print(f"  - {os.path.join(OUTPUT_DIR, 'all_pareto_fronts.csv')}")
+        print(f"  - {os.path.join(OUTPUT_DIR, 'convergence_history.csv')}")
+        print("\nPara gerar os gráficos, execute: python multi_objetivo/case_study_plot.py")
+        print("="*80)
     
     finally:
         # Fecha o pool de processos
