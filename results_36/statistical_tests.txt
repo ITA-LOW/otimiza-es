@@ -1,0 +1,228 @@
+================================================================================
+STATISTICAL SIGNIFICANCE TESTS - MANN-WHITNEY U TEST
+================================================================================
+Null Hypothesis (H0): The two methods have the same distribution
+Alternative Hypothesis (H1): The two methods have different distributions
+Significance Level: α = 0.05
+p < 0.05: Reject H0 (statistically significant difference)
+p ≥ 0.05: Fail to reject H0 (no significant difference)
+================================================================================
+
+
+================================================================================
+SCALE: 16 TURBINES
+================================================================================
+
+
+--------------------------------------------------------------------------------
+Metric: Hypervolume
+--------------------------------------------------------------------------------
+Baseline:   8488673264923.9473 ± 105427838485.1595 (n=20)
+Proposed:   8917445162370.1426 ± 80463600136.0010 (n=20)
+Sequential: 8935668894578.5703 ± 49976926140.7700 (n=20)
+
+Test: Proposed vs Baseline
+  Mann-Whitney U statistic: 400.0000
+  p-value: 0.000000 ***
+  Significant: YES
+  Better method: Proposed
+
+Test: Sequential vs Baseline
+  Mann-Whitney U statistic: 400.0000
+  p-value: 0.000000 ***
+  Significant: YES
+  Better method: Sequential
+
+Test: Proposed vs Sequential
+  Mann-Whitney U statistic: 149.0000
+  p-value: 0.171930 ns
+  Significant: NO
+  Better method: Sequential
+
+
+--------------------------------------------------------------------------------
+Metric: Net AEP
+--------------------------------------------------------------------------------
+Baseline:   402.9243 ± 8.0786 (n=20)
+Proposed:   462.3271 ± 1.5105 (n=20)
+Sequential: 464.4317 ± 0.5717 (n=20)
+
+Test: Proposed vs Baseline
+  Mann-Whitney U statistic: 400.0000
+  p-value: 0.000000 ***
+  Significant: YES
+  Better method: Proposed
+
+Test: Sequential vs Baseline
+  Mann-Whitney U statistic: 400.0000
+  p-value: 0.000000 ***
+  Significant: YES
+  Better method: Sequential
+
+Test: Proposed vs Sequential
+  Mann-Whitney U statistic: 15.0000
+  p-value: 0.000001 ***
+  Significant: YES
+  Better method: Sequential
+
+
+--------------------------------------------------------------------------------
+Metric: Cabling Cost
+--------------------------------------------------------------------------------
+Baseline:   199.7155 ± 30.7279 (n=20)
+Proposed:   561.2377 ± 35.0438 (n=20)
+Sequential: 671.9506 ± 91.6951 (n=20)
+
+Test: Proposed vs Baseline
+  Mann-Whitney U statistic: 400.0000
+  p-value: 0.000000 ***
+  Significant: YES
+  Better method: Baseline
+
+Test: Sequential vs Baseline
+  Mann-Whitney U statistic: 400.0000
+  p-value: 0.000000 ***
+  Significant: YES
+  Better method: Baseline
+
+Test: Proposed vs Sequential
+  Mann-Whitney U statistic: 76.0000
+  p-value: 0.000836 ***
+  Significant: YES
+  Better method: Proposed
+
+
+--------------------------------------------------------------------------------
+Metric: Execution Time
+--------------------------------------------------------------------------------
+Baseline:   9.4365 ± 0.1094 (n=20)
+Proposed:   5.7103 ± 0.1473 (n=20)
+Sequential: 4.8299 ± 0.1064 (n=20)
+
+Test: Proposed vs Baseline
+  Mann-Whitney U statistic: 0.0000
+  p-value: 0.000000 ***
+  Significant: YES
+  Better method: Proposed
+
+Test: Sequential vs Baseline
+  Mann-Whitney U statistic: 0.0000
+  p-value: 0.000000 ***
+  Significant: YES
+  Better method: Sequential
+
+Test: Proposed vs Sequential
+  Mann-Whitney U statistic: 400.0000
+  p-value: 0.000000 ***
+  Significant: YES
+  Better method: Sequential
+
+
+================================================================================
+SCALE: 36 TURBINES
+================================================================================
+
+
+--------------------------------------------------------------------------------
+Metric: Hypervolume
+--------------------------------------------------------------------------------
+Baseline:   16387218542772.9375 ± 189687555051.6856 (n=20)
+Proposed:   17216468150387.6367 ± 322842459384.4826 (n=20)
+Sequential: 17298409488316.7695 ± 216310720149.0313 (n=20)
+
+Test: Proposed vs Baseline
+  Mann-Whitney U statistic: 400.0000
+  p-value: 0.000000 ***
+  Significant: YES
+  Better method: Proposed
+
+Test: Sequential vs Baseline
+  Mann-Whitney U statistic: 400.0000
+  p-value: 0.000000 ***
+  Significant: YES
+  Better method: Sequential
+
+Test: Proposed vs Sequential
+  Mann-Whitney U statistic: 144.0000
+  p-value: 0.133283 ns
+  Significant: NO
+  Better method: Sequential
+
+
+--------------------------------------------------------------------------------
+Metric: Net AEP
+--------------------------------------------------------------------------------
+Baseline:   837.9356 ± 10.5708 (n=20)
+Proposed:   942.7129 ± 5.0139 (n=20)
+Sequential: 945.9343 ± 3.6063 (n=20)
+
+Test: Proposed vs Baseline
+  Mann-Whitney U statistic: 400.0000
+  p-value: 0.000000 ***
+  Significant: YES
+  Better method: Proposed
+
+Test: Sequential vs Baseline
+  Mann-Whitney U statistic: 400.0000
+  p-value: 0.000000 ***
+  Significant: YES
+  Better method: Sequential
+
+Test: Proposed vs Sequential
+  Mann-Whitney U statistic: 135.0000
+  p-value: 0.081032 ns
+  Significant: NO
+  Better method: Sequential
+
+
+--------------------------------------------------------------------------------
+Metric: Cabling Cost
+--------------------------------------------------------------------------------
+Baseline:   861.4049 ± 258.0989 (n=20)
+Proposed:   1181.7423 ± 380.3842 (n=20)
+Sequential: 1861.3484 ± 581.0892 (n=20)
+
+Test: Proposed vs Baseline
+  Mann-Whitney U statistic: 362.0000
+  p-value: 0.000013 ***
+  Significant: YES
+  Better method: Baseline
+
+Test: Sequential vs Baseline
+  Mann-Whitney U statistic: 384.0000
+  p-value: 0.000001 ***
+  Significant: YES
+  Better method: Baseline
+
+Test: Proposed vs Sequential
+  Mann-Whitney U statistic: 25.0000
+  p-value: 0.000002 ***
+  Significant: YES
+  Better method: Proposed
+
+
+--------------------------------------------------------------------------------
+Metric: Execution Time
+--------------------------------------------------------------------------------
+Baseline:   42.2634 ± 0.4604 (n=20)
+Proposed:   19.8075 ± 0.9009 (n=20)
+Sequential: 21.6852 ± 0.3167 (n=20)
+
+Test: Proposed vs Baseline
+  Mann-Whitney U statistic: 0.0000
+  p-value: 0.000000 ***
+  Significant: YES
+  Better method: Proposed
+
+Test: Sequential vs Baseline
+  Mann-Whitney U statistic: 0.0000
+  p-value: 0.000000 ***
+  Significant: YES
+  Better method: Sequential
+
+Test: Proposed vs Sequential
+  Mann-Whitney U statistic: 24.0000
+  p-value: 0.000002 ***
+  Significant: YES
+  Better method: Proposed
+
