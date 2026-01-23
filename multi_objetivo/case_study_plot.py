@@ -21,6 +21,8 @@ import matplotlib.pyplot as plt
 import matplotlib
 import matplotlib.colors as mcolors
 from matplotlib.patches import Circle
+from scipy import stats  # For statistical significance tests
+
 
 # Configuração de fontes para publicação
 matplotlib.rcParams['pdf.fonttype'] = 42
@@ -41,6 +43,19 @@ TURBINE_MARKER_SIZE = 40
 TURBINE_EDGE_WIDTH = 1.0
 SUBSTATION_MARKER_SIZE = 200
 CABLE_LINEWIDTH = 1.0
+
+# Cores para publicação (consistência em todos os gráficos)
+COLORS_PUBLICATION = {
+    'Proposed': '#2ca02c',    # Verde
+    'Baseline': '#1f77b4',    # Azul
+    'Sequential': '#d62728'   # Vermelho
+}
+MARKERS_PUBLICATION = {
+    'Baseline': 'o',          # Círculo
+    'Proposed': 's',          # Quadrado
+    'Sequential': '^'         # Triângulo
+}
+
 
 # Importa módulos do projeto
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -1192,6 +1207,621 @@ def plot_qualitative_metrics_multi_scale(results_dirs, output_dir='.'):
         plt.close()
 
 # =============================================================================
+# FUNÇÕES DE PLOTAGEM SEPARADAS (PUBLICAÇÃO)
+# =============================================================================
+
+def plot_scalability_separate(results_dirs, output_dir='.'):
+    """
+    Gera gráficos separados para cada métrica de escalabilidade (estilo publicação).
+    Similar ao generate_figures_tables.py mas integrado ao workflow existente.
+    
+    Args:
+        results_dirs: Dict {scale: dir_path} Ex: {'16': 'results_16', '36': 'results_36'}
+        output_dir: Diretório de saída
+    """
+    if isinstance(results_dirs, dict):
+        scales_data = results_dirs
+    else:
+        scales_data = {scale: dir_path for scale, dir_path in results_dirs}
+    
+    if len(scales_data) == 0:
+        print("AVISO: Nenhum diretório fornecido para análise de escalabilidade")
+        return
+    
+    # Carrega dados de todas as escalas
+    dfs = {}
+    for scale_str, dir_path in scales_data.items():
+        summary_path = os.path.join(dir_path, 'summary_results.csv')
+        if os.path.exists(summary_path):
+            df = pd.read_csv(summary_path)
+            df['Scale'] = int(scale_str)
+            dfs[scale_str] = df
+        else:
+            print(f"AVISO: {summary_path} não encontrado, pulando escala {scale_str}")
+    
+    if len(dfs) == 0:
+        print("AVISO: Nenhum dado disponível para análise de escalabilidade")
+        return
+    
+    scales = sorted([int(s) for s in dfs.keys()])
+    
+    # Métricas de escalabilidade
+    metrics = {
+        'net_aep': {
+            'col': 'Net_AEP_GWh',
+            'ylabel': 'Net AEP (GWh)',
+            'title': 'Net AEP Scalability'
+        },
+        'capex': {
+            'col': 'Total_Cost_USD',
+            'ylabel': 'CAPEX (kUSD)',
+            'title': 'CAPEX Scalability',
+            'scale_factor': 1000  # USD -> kUSD
+        },
+        'execution_time': {
+            'col': 'Time_Total_s',
+            'ylabel': 'Execution Time (minutes)',
+            'title': 'Computational Efficiency Scalability',
+            'scale_factor': 60  # seconds -> minutes
+        }
+    }
+    
+    for metric_key, metric_info in metrics.items():
+        fig, ax = plt.subplots(figsize=(10, 7))
+        
+        for method in ['Baseline', 'Proposed', 'Sequential']:
+            means = []
+            stds = []
+            valid_scales = []
+            
+            for scale in scales:
+                scale_str = str(scale)
+                if scale_str in dfs:
+                    df_scale = dfs[scale_str]
+                    data = df_scale[df_scale['Method'] == method]
+                    
+                    if len(data) > 0 and metric_info['col'] in data.columns:
+                        values = data[metric_info['col']].values
+                        
+                        # Aplica escala se necessário
+                        if 'scale_factor' in metric_info:
+                            values = values / metric_info['scale_factor']
+                        
+                        if len(values) > 0:
+                            means.append(np.mean(values))
+                            stds.append(np.std(values))
+                            valid_scales.append(scale)
+            
+            if len(means) > 0:
+                ax.errorbar(valid_scales, means, yerr=stds,
+                           label=method, color=COLORS_PUBLICATION[method],
+                           marker=MARKERS_PUBLICATION[method],
+                           markersize=12, linewidth=3, capsize=8, capthick=2.5,
+                           elinewidth=2.5)
+        
+        ax.set_xlabel('Number of Turbines', fontsize=20, fontweight='bold')
+        ax.set_ylabel(metric_info['ylabel'], fontsize=20, fontweight='bold')
+        ax.set_title(metric_info['title'], fontsize=24, fontweight='bold', pad=20)
+        ax.grid(True, linestyle='--', alpha=0.3, linewidth=1.5)
+        ax.legend(fontsize=18, loc='best', framealpha=0.9)
+        ax.tick_params(labelsize=18, width=1.5, length=6)
+        ax.set_xticks(scales)
+        
+        # Melhorar aparência
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.spines['left'].set_linewidth(1.5)
+        ax.spines['bottom'].set_linewidth(1.5)
+        
+        plt.tight_layout()
+        output_path = os.path.join(output_dir, f'scalability_{metric_key}.png')
+        output_path_pdf = os.path.join(output_dir, f'scalability_{metric_key}.pdf')
+        plt.savefig(output_path, dpi=300, bbox_inches='tight', facecolor='white')
+        plt.savefig(output_path_pdf, bbox_inches='tight', facecolor='white')
+        print(f"✓ Gráfico de escalabilidade gerado: {output_path}")
+        plt.close()
+
+def plot_qualitative_separate(results_dirs, output_dir='.'):
+    """
+    Gera gráficos separados para características qualitativas (estilo publicação).
+    Similar ao generate_figures_tables.py mas integrado ao workflow existente.
+    
+    Args:
+        results_dirs: Dict {scale: dir_path}
+        output_dir: Diretório de saída
+    """
+    if isinstance(results_dirs, dict):
+        scales_data = results_dirs
+    else:
+        scales_data = {scale: dir_path for scale, dir_path in results_dirs}
+    
+    if len(scales_data) == 0:
+        print("AVISO: Nenhum diretório fornecido para análise qualitativa")
+        return
+    
+    # Carrega dados de todas as escalas
+    dfs = {}
+    for scale_str, dir_path in scales_data.items():
+        summary_path = os.path.join(dir_path, 'summary_results.csv')
+        if os.path.exists(summary_path):
+            df = pd.read_csv(summary_path)
+            df['Scale'] = int(scale_str)
+            # Calcula métrica derivada se não existir
+            if 'Substation_Eccentricity_m' not in df.columns:
+                if 'Substation_X' in df.columns and 'Substation_Y' in df.columns:
+                    df['Substation_Eccentricity_m'] = np.sqrt(
+                        df['Substation_X']**2 + df['Substation_Y']**2
+                    )
+            dfs[scale_str] = df
+        else:
+            print(f"AVISO: {summary_path} não encontrado, pulando escala {scale_str}")
+    
+    if len(dfs) == 0:
+        print("AVISO: Nenhum dado disponível para análise qualitativa")
+        return
+    
+    # Características qualitativas
+    characteristics = {
+        'substation_distance': {
+            'col': 'Substation_Eccentricity_m',
+            'ylabel': 'Substation Distance (m)',
+            'title': 'Substation Distance by Method and Scale'
+        },
+        'cable_length': {
+            'col': 'Total_Cable_Length_km',
+            'ylabel': 'Total Cable Length (km)',
+            'title': 'Cable Length by Method and Scale'
+        },
+        'cable_groups': {
+            'col': 'Num_Cable_Strings',
+            'ylabel': 'Number of Cable Groups',
+            'title': 'Cable Groups by Method and Scale'
+        },
+        'electrical_losses': {
+            'col': 'Electrical_Loss_Percentage',
+            'ylabel': 'Electrical Losses (%)',
+            'title': 'Electrical Losses by Method and Scale'
+        }
+    }
+    
+    scales = sorted([int(s) for s in dfs.keys()])
+    scale_strs = [str(s) for s in scales]
+    x = np.arange(len(scales))
+    width = 0.25
+    
+    for char_key, char_info in characteristics.items():
+        fig, ax = plt.subplots(figsize=(10, 7))
+        
+        for i, method in enumerate(['Baseline', 'Proposed', 'Sequential']):
+            means = []
+            stds = []
+            
+            for scale_str in scale_strs:
+                if scale_str in dfs:
+                    df_scale = dfs[scale_str]
+                    data = df_scale[df_scale['Method'] == method]
+                    
+                    if len(data) > 0 and char_info['col'] in data.columns:
+                        values = data[char_info['col']].dropna().values
+                        if len(values) > 0:
+                            means.append(np.mean(values))
+                            stds.append(np.std(values))
+                        else:
+                            means.append(0)
+                            stds.append(0)
+                    else:
+                        means.append(0)
+                        stds.append(0)
+                else:
+                    means.append(0)
+                    stds.append(0)
+            
+            ax.bar(x + i*width, means, width, label=method, color=COLORS_PUBLICATION[method],
+                  alpha=0.8, yerr=stds, capsize=8, error_kw={'linewidth': 2.5, 'capthick': 2.5})
+        
+        ax.set_xlabel('Number of Turbines', fontsize=20, fontweight='bold')
+        ax.set_ylabel(char_info['ylabel'], fontsize=20, fontweight='bold')
+        ax.set_title(char_info['title'], fontsize=24, fontweight='bold', pad=20)
+        ax.set_xticks(x + width)
+        ax.set_xticklabels([str(s) for s in scales])
+        ax.legend(fontsize=18, loc='best', framealpha=0.9)
+        ax.grid(True, linestyle='--', alpha=0.3, axis='y', linewidth=1.5)
+        ax.tick_params(labelsize=18, width=1.5, length=6)
+        
+        # Melhorar aparência
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.spines['left'].set_linewidth(1.5)
+        ax.spines['bottom'].set_linewidth(1.5)
+        
+        plt.tight_layout()
+        output_path = os.path.join(output_dir, f'qualitative_{char_key}.png')
+        output_path_pdf = os.path.join(output_dir, f'qualitative_{char_key}.pdf')
+        plt.savefig(output_path, dpi=300, bbox_inches='tight', facecolor='white')
+        plt.savefig(output_path_pdf, bbox_inches='tight', facecolor='white')
+        print(f"✓ Gráfico qualitativo gerado: {output_path}")
+        plt.close()
+
+def generate_latex_tables(results_dirs, output_dir='.'):
+    """
+    Gera tabelas LaTeX com dados resumidos para múltiplas escalas.
+    Similar ao generate_figures_tables.py mas integrado ao workflow existente.
+    
+    Args:
+        results_dirs: Dict {scale: dir_path}
+        output_dir: Diretório de saída
+    
+    Returns:
+        tuple: (latex_quant, latex_qual) - Strings com código LaTeX das tabelas
+    """
+    if isinstance(results_dirs, dict):
+        scales_data = results_dirs
+    else:
+        scales_data = {scale: dir_path for scale, dir_path in results_dirs}
+    
+    if len(scales_data) == 0:
+        print("AVISO: Nenhum diretório fornecido para gerar tabelas LaTeX")
+        return None, None
+    
+    # Carrega dados de todas as escalas
+    dfs = {}
+    for scale_str, dir_path in scales_data.items():
+        summary_path = os.path.join(dir_path, 'summary_results.csv')
+        if os.path.exists(summary_path):
+            df = pd.read_csv(summary_path)
+            df['Scale'] = int(scale_str)
+            # Calcula métricas derivadas
+            if 'Substation_Eccentricity_m' not in df.columns:
+                if 'Substation_X' in df.columns and 'Substation_Y' in df.columns:
+                    df['Substation_Eccentricity_m'] = np.sqrt(
+                        df['Substation_X']**2 + df['Substation_Y']**2
+                    )
+            if 'Electrical_Loss_Percentage' not in df.columns:
+                if 'Perdas_Joule_MWh' in df.columns and 'AEP_Bruto_MWh' in df.columns:
+                    df['Electrical_Loss_Percentage'] = (
+                        df['Perdas_Joule_MWh'] / df['AEP_Bruto_MWh'] * 100
+                    )
+            dfs[scale_str] = df
+        else:
+            print(f"AVISO: {summary_path} não encontrado, pulando escala {scale_str}")
+    
+    if len(dfs) == 0:
+        print("AVISO: Nenhum dado disponível para gerar tabelas LaTeX")
+        return None, None
+    
+    scales_sorted = sorted(dfs.keys(), key=lambda x: int(x))
+    
+    # Tabela de métricas quantitativas
+    latex_quant = """\\begin{table}[htbp]
+\\caption{Quantitative performance metrics across problem scales (mean $\\pm$ std).}
+\\label{tab:quantitative_metrics}
+\\centering
+\\resizebox{\\columnwidth}{!}{%
+\\begin{tabular}{clccc}
+\\toprule
+\\textbf{Scale} & \\textbf{Method} & \\textbf{Net AEP} & \\textbf{CAPEX} & \\textbf{Time} \\\\
+ &  & [GWh] & [kUSD] & [min] \\\\
+\\midrule
+"""
+    
+    for scale in scales_sorted:
+        df_scale = dfs[scale]
+        latex_quant += f"\\multirow{{3}}{{*}}{{{scale}}}\n"
+        
+        for method in ['Baseline', 'Proposed', 'Sequential']:
+            data = df_scale[df_scale['Method'] == method]
+            if len(data) > 0:
+                # Extrai métricas com conversões de unidades
+                aep_mean = data['Net_AEP_GWh'].mean() if 'Net_AEP_GWh' in data.columns else 0
+                aep_std = data['Net_AEP_GWh'].std() if 'Net_AEP_GWh' in data.columns else 0
+                
+                cost_mean = (data['Total_Cost_USD'].mean() / 1000.0) if 'Total_Cost_USD' in data.columns else 0
+                cost_std = (data['Total_Cost_USD'].std() / 1000.0) if 'Total_Cost_USD' in data.columns else 0
+                
+                time_mean = (data['Time_Total_s'].mean() / 60.0) if 'Time_Total_s' in data.columns else 0
+                time_std = (data['Time_Total_s'].std() / 60.0) if 'Time_Total_s' in data.columns else 0
+                
+                latex_quant += f" & {method:12s} & ${aep_mean:.2f} \\pm {aep_std:.2f}$ & ${cost_mean:.0f} \\pm {cost_std:.0f}$ & ${time_mean:.1f} \\pm {time_std:.1f}$ \\\\\n"
+        
+        if scale != scales_sorted[-1]:
+            latex_quant += "\\midrule\n"
+    
+    latex_quant += """\\bottomrule
+\\end{tabular}%
+}
+\\end{table}
+"""
+    
+    # Tabela de características qualitativas
+    latex_qual = """\\begin{table*}[htbp]
+\\caption{Qualitative characteristics across problem scales (mean $\\pm$ std).}
+\\label{tab:qualitative_metrics}
+\\centering
+\\resizebox{\\textwidth}{!}{%
+\\begin{tabular}{clcccc}
+\\toprule
+\\textbf{Scale} & \\textbf{Method} & \\textbf{Subst. Dist.} & \\textbf{Cable Length} & \\textbf{Groups} & \\textbf{Losses} \\\\
+ &  & [m] & [km] &  & [\\%] \\\\
+\\midrule
+"""
+    
+    for scale in scales_sorted:
+        df_scale = dfs[scale]
+        latex_qual += f"\\multirow{{3}}{{*}}{{{scale}}}\n"
+        
+        for method in ['Baseline', 'Proposed', 'Sequential']:
+            data = df_scale[df_scale['Method'] == method]
+            if len(data) > 0:
+                subst_mean = data['Substation_Eccentricity_m'].mean() if 'Substation_Eccentricity_m' in data.columns else 0
+                subst_std = data['Substation_Eccentricity_m'].std() if 'Substation_Eccentricity_m' in data.columns else 0
+                
+                cable_mean = data['Total_Cable_Length_km'].mean() if 'Total_Cable_Length_km' in data.columns else 0
+                cable_std = data['Total_Cable_Length_km'].std() if 'Total_Cable_Length_km' in data.columns else 0
+                
+                groups_mean = data['Num_Cable_Strings'].mean() if 'Num_Cable_Strings' in data.columns else 0
+                groups_std = data['Num_Cable_Strings'].std() if 'Num_Cable_Strings' in data.columns else 0
+                
+                losses_mean = data['Electrical_Loss_Percentage'].mean() if 'Electrical_Loss_Percentage' in data.columns else 0
+                losses_std = data['Electrical_Loss_Percentage'].std() if 'Electrical_Loss_Percentage' in data.columns else 0
+                
+                latex_qual += f" & {method:12s} & ${subst_mean:.0f} \\pm {subst_std:.0f}$ & ${cable_mean:.2f} \\pm {cable_std:.2f}$ & ${groups_mean:.1f} \\pm {groups_std:.1f}$ & ${losses_mean:.2f} \\pm {losses_std:.2f}$ \\\\\n"
+        
+        if scale != scales_sorted[-1]:
+            latex_qual += "\\midrule\n"
+    
+    latex_qual += """\\bottomrule
+\\end{tabular}%
+}
+\\end{table*}
+"""
+    
+    # Salvar tabelas
+    os.makedirs(output_dir, exist_ok=True)
+    quant_path = os.path.join(output_dir, 'table_quantitative_metrics.tex')
+    qual_path = os.path.join(output_dir, 'table_qualitative_metrics.tex')
+    
+    with open(quant_path, 'w') as f:
+        f.write(latex_quant)
+    print(f"✓ Tabela LaTeX gerada: {quant_path}")
+    
+    with open(qual_path, 'w') as f:
+        f.write(latex_qual)
+    print(f"✓ Tabela LaTeX gerada: {qual_path}")
+    
+    return latex_quant, latex_qual
+
+def perform_statistical_tests(results_dirs, output_dir='.'):
+    """
+    Realiza testes de significância estatística comparando métodos.
+    
+    Testes aplicados:
+    - Mann-Whitney U test (comparação entre 2 grupos independentes)
+    - Compara Proposed vs Baseline e Sequential vs Baseline
+    
+    Args:
+        results_dirs: Dict {scale: dir_path} com dados de múltiplas escalas
+        output_dir: Diretório de saída para relatórios
+    
+    Returns:
+        dict: Resultados dos testes estatísticos
+    """
+    if isinstance(results_dirs, dict):
+        scales_data = results_dirs
+    else:
+        scales_data = {scale: dir_path for scale, dir_path in results_dirs}
+    
+    if len(scales_data) == 0:
+        print("AVISO: Nenhum diretório fornecido para testes estatísticos")
+        return {}
+    
+    # Carrega dados de todas as escalas
+    dfs = {}
+    for scale_str, dir_path in scales_data.items():
+        summary_path = os.path.join(dir_path, 'summary_results.csv')
+        if os.path.exists(summary_path):
+            df = pd.read_csv(summary_path)
+            df['Scale'] = int(scale_str)
+            dfs[scale_str] = df
+        else:
+            print(f"AVISO: {summary_path} não encontrado, pulando escala {scale_str}")
+    
+    if len(dfs) == 0:
+        print("AVISO: Nenhum dado disponível para testes estatísticos")
+        return {}
+    
+    # Métricas a testar
+    metrics = {
+        'Final_Hypervolume': {
+            'name': 'Hypervolume',
+            'better': 'higher',
+            'unit': '×10¹²'
+        },
+        'Net_AEP_GWh': {
+            'name': 'Net AEP',
+            'better': 'higher',
+            'unit': 'GWh'
+        },
+        'Total_Cost_USD': {
+            'name': 'Cabling Cost',
+            'better': 'lower',
+            'unit': 'USD',
+            'scale': 1000  # Convert to kUSD
+        },
+        'Time_Total_s': {
+            'name': 'Execution Time',
+            'better': 'lower',
+            'unit': 'seconds',
+            'scale': 60  # Convert to minutes
+        }
+    }
+    
+    all_results = {}
+    
+    # Abre arquivo de saída
+    stats_file = os.path.join(output_dir, 'statistical_tests.txt')
+    latex_file = os.path.join(output_dir, 'statistical_tests.tex')
+    
+    with open(stats_file, 'w') as f_txt, open(latex_file, 'w') as f_tex:
+        # Cabeçalho texto
+        f_txt.write("="*80 + "\n")
+        f_txt.write("STATISTICAL SIGNIFICANCE TESTS - MANN-WHITNEY U TEST\n")
+        f_txt.write("="*80 + "\n")
+        f_txt.write("Null Hypothesis (H0): The two methods have the same distribution\n")
+        f_txt.write("Alternative Hypothesis (H1): The two methods have different distributions\n")
+        f_txt.write("Significance Level: α = 0.05\n")
+        f_txt.write("p < 0.05: Reject H0 (statistically significant difference)\n")
+        f_txt.write("p ≥ 0.05: Fail to reject H0 (no significant difference)\n")
+        f_txt.write("="*80 + "\n\n")
+        
+        # Cabeçalho LaTeX
+        f_tex.write("% Statistical Significance Tests - LaTeX Table\n")
+        f_tex.write("\\begin{table*}[htbp]\n")
+        f_tex.write("\\caption{Statistical significance tests (Mann-Whitney U) comparing optimization methods.}\n")
+        f_tex.write("\\label{tab:statistical_tests}\n")
+        f_tex.write("\\centering\n")
+        f_tex.write("\\resizebox{\\textwidth}{!}{%\n")
+        f_tex.write("\\begin{tabular}{llccccl}\n")
+        f_tex.write("\\toprule\n")
+        f_tex.write("\\textbf{Scale} & \\textbf{Metric} & \\textbf{Baseline} & \\textbf{Proposed} & \\textbf{Sequential} & \\textbf{p-value} & \\textbf{Conclusion} \\\\\n")
+        f_tex.write("\\midrule\n")
+        
+        # Para cada escala
+        for scale_str in sorted(dfs.keys(), key=lambda x: int(x)):
+            df_scale = dfs[scale_str]
+            scale = int(scale_str)
+            
+            f_txt.write(f"\n{'='*80}\n")
+            f_txt.write(f"SCALE: {scale} TURBINES\n")
+            f_txt.write(f"{'='*80}\n\n")
+            
+            scale_results = {}
+            
+            # Para cada métrica
+            for metric_key, metric_info in metrics.items():
+                if metric_key not in df_scale.columns:
+                    continue
+                
+                f_txt.write(f"\n{'-'*80}\n")
+                f_txt.write(f"Metric: {metric_info['name']}\n")
+                f_txt.write(f"{'-'*80}\n")
+                
+                # Extrai dados por método
+                baseline_data = df_scale[df_scale['Method'] == 'Baseline'][metric_key].dropna().values
+                proposed_data = df_scale[df_scale['Method'] == 'Proposed'][metric_key].dropna().values
+                sequential_data = df_scale[df_scale['Method'] == 'Sequential'][metric_key].dropna().values
+                
+                # Aplica escala se necessário
+                scale_factor = metric_info.get('scale', 1)
+                baseline_data = baseline_data / scale_factor
+                proposed_data = proposed_data / scale_factor
+                sequential_data = sequential_data / scale_factor
+                
+                # Calcula estatísticas descritivas
+                baseline_mean = np.mean(baseline_data) if len(baseline_data) > 0 else 0
+                baseline_std = np.std(baseline_data) if len(baseline_data) > 0 else 0
+                proposed_mean = np.mean(proposed_data) if len(proposed_data) > 0 else 0
+                proposed_std = np.std(proposed_data) if len(proposed_data) > 0 else 0
+                sequential_mean = np.mean(sequential_data) if len(sequential_data) > 0 else 0
+                sequential_std = np.std(sequential_data) if len(sequential_data) > 0 else 0
+                
+                f_txt.write(f"Baseline:   {baseline_mean:.4f} ± {baseline_std:.4f} (n={len(baseline_data)})\n")
+                f_txt.write(f"Proposed:   {proposed_mean:.4f} ± {proposed_std:.4f} (n={len(proposed_data)})\n")
+                f_txt.write(f"Sequential: {sequential_mean:.4f} ± {sequential_std:.4f} (n={len(sequential_data)})\n\n")
+                
+                # Teste 1: Proposed vs Baseline
+                if len(proposed_data) > 0 and len(baseline_data) > 0:
+                    try:
+                        statistic_pb, p_value_pb = stats.mannwhitneyu(
+                            proposed_data, baseline_data, alternative='two-sided'
+                        )
+                        
+                        # Determina se é significativo
+                        is_significant_pb = p_value_pb < 0.05
+                        significance_pb = "***" if p_value_pb < 0.001 else "**" if p_value_pb < 0.01 else "*" if p_value_pb < 0.05 else "ns"
+                        
+                        # Determina qual é melhor
+                        if metric_info['better'] == 'higher':
+                            winner_pb = "Proposed" if proposed_mean > baseline_mean else "Baseline"
+                        else:
+                            winner_pb = "Proposed" if proposed_mean < baseline_mean else "Baseline"
+                        
+                        f_txt.write(f"Test: Proposed vs Baseline\n")
+                        f_txt.write(f"  Mann-Whitney U statistic: {statistic_pb:.4f}\n")
+                        f_txt.write(f"  p-value: {p_value_pb:.6f} {significance_pb}\n")
+                        f_txt.write(f"  Significant: {'YES' if is_significant_pb else 'NO'}\n")
+                        f_txt.write(f"  Better method: {winner_pb}\n\n")
+                        
+                        # Salva resultados
+                        if scale_str not in scale_results:
+                            scale_results[scale_str] = {}
+                        scale_results[scale_str][f"{metric_key}_proposed_vs_baseline"] = {
+                            'p_value': p_value_pb,
+                            'significant': is_significant_pb,
+                            'winner': winner_pb
+                        }
+                        
+                        # Adiciona à tabela LaTeX
+                        unit_str = f"[{metric_info['unit']}]" if 'scale' in metric_info else f"[{metric_info['unit']}]"
+                        conclusion = f"\\textbf{{{winner_pb}}}" if is_significant_pb else "No diff."
+                        f_tex.write(f"{scale} & {metric_info['name']} {unit_str} & "
+                                  f"${baseline_mean:.2f}\\pm{baseline_std:.2f}$ & "
+                                  f"${proposed_mean:.2f}\\pm{proposed_std:.2f}$ & "
+                                  f"${sequential_mean:.2f}\\pm{sequential_std:.2f}$ & "
+                                  f"{p_value_pb:.4f}{significance_pb} & {conclusion} \\\\\n")
+                        
+                    except Exception as e:
+                        f_txt.write(f"  ERROR: {e}\n\n")
+                
+                # Teste 2: Sequential vs Baseline
+                if len(sequential_data) > 0 and len(baseline_data) > 0:
+                    try:
+                        statistic_sb, p_value_sb = stats.mannwhitneyu(
+                            sequential_data, baseline_data, alternative='two-sided'
+                        )
+                        
+                        is_significant_sb = p_value_sb < 0.05
+                        significance_sb = "***" if p_value_sb < 0.001 else "**" if p_value_sb < 0.01 else "*" if p_value_sb < 0.05 else "ns"
+                        
+                        if metric_info['better'] == 'higher':
+                            winner_sb = "Sequential" if sequential_mean > baseline_mean else "Baseline"
+                        else:
+                            winner_sb = "Sequential" if sequential_mean < baseline_mean else "Baseline"
+                        
+                        f_txt.write(f"Test: Sequential vs Baseline\n")
+                        f_txt.write(f"  Mann-Whitney U statistic: {statistic_sb:.4f}\n")
+                        f_txt.write(f"  p-value: {p_value_sb:.6f} {significance_sb}\n")
+                        f_txt.write(f"  Significant: {'YES' if is_significant_sb else 'NO'}\n")
+                        f_txt.write(f"  Better method: {winner_sb}\n\n")
+                        
+                        if scale_str not in scale_results:
+                            scale_results[scale_str] = {}
+                        scale_results[scale_str][f"{metric_key}_sequential_vs_baseline"] = {
+                            'p_value': p_value_sb,
+                            'significant': is_significant_sb,
+                            'winner': winner_sb
+                        }
+                        
+                    except Exception as e:
+                        f_txt.write(f"  ERROR: {e}\n\n")
+            
+            all_results[scale_str] = scale_results
+        
+        # Fecha tabela LaTeX
+        f_tex.write("\\bottomrule\n")
+        f_tex.write("\\end{tabular}%\n")
+        f_tex.write("}\n")
+        f_tex.write("\\begin{tablenotes}\n")
+        f_tex.write("\\small\n")
+        f_tex.write("\\item Note: Significance levels: *** p\u003c0.001, ** p\u003c0.01, * p\u003c0.05, ns = not significant.\n")
+        f_tex.write("\\end{tablenotes}\n")
+        f_tex.write("\\end{table*}\n")
+    
+    print(f"✓ Testes estatísticos salvos em: {stats_file}")
+    print(f"✓ Tabela LaTeX salva em: {latex_file}")
+    
+    return all_results
+
+# =============================================================================
 # FUNÇÃO PRINCIPAL
 # =============================================================================
 
@@ -1294,6 +1924,22 @@ def main(results_dir, multi_scale_dirs=None):
         
         print("\n>>> Gerando gráficos qualitativos multi-escala...")
         plot_qualitative_metrics_multi_scale(multi_scale_dirs, output_dir=results_dir)
+        
+        # 10. Gráficos separados estilo publicação (novos)
+        print("\n>>> Gerando gráficos de escalabilidade separados (publicação)...")
+        plot_scalability_separate(multi_scale_dirs, output_dir=results_dir)
+        
+        print("\n>>> Gerando gráficos qualitativos separados (publicação)...")
+        plot_qualitative_separate(multi_scale_dirs, output_dir=results_dir)
+        
+        # 11. Tabelas LaTeX (novas)
+        print("\n>>> Gerando tabelas LaTeX...")
+        generate_latex_tables(multi_scale_dirs, output_dir=results_dir)
+        
+        # 12. Testes estatísticos (novos)
+        print("\n>>> Realizando testes de significância estatística...")
+        perform_statistical_tests(multi_scale_dirs, output_dir=results_dir)
+
     
     print("\n" + "="*80)
     print("TODOS OS GRÁFICOS GERADOS COM SUCESSO!")

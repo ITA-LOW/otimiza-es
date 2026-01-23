@@ -32,7 +32,7 @@ except ImportError:
     print("AVISO: Pillow não está instalado. Instale com: pip install pillow")
 
 # Configurações
-CIRCLE_RADIUS = 1300
+CIRCLE_RADIUS = 5000
 IND_SIZE = 16
 EVOLUTION_DIR_PHASE1 = "pareto_front_results/evolution_phase1"
 EVOLUTION_DIR_PHASE2 = "pareto_front_results/evolution"
@@ -120,6 +120,8 @@ def create_animation():
     all_phases = []
     all_n_grupos = []
     all_cabling_paths = []  # Armazena caminhos de cabeamento para Fase 2
+    all_substation_pos = []  # Armazena posições da subestação
+    all_coords_with_sub = []  # Armazena coordenadas com subestação (para Phase 2)
     
     SUBSTATION_CONTINENT = np.array([[-1.0, -1350.0]])  # Fallback se não houver posição salva
     
@@ -138,52 +140,56 @@ def create_animation():
         
         # Calcula cabeamento para Fase 2
         cabling_paths = None
+        coords_with_substation = None  # Coordenadas + subestação para visualização
+        
         if phase == 2 and CABLING_AVAILABLE:
             try:
-                # Usa posição da subestação do arquivo, ou fallback para encontrar turbina mais próxima do continente
+                # Adiciona subestação às coordenadas para cálculo de cabeamento
                 if substation_pos is not None:
-                    # Encontra turbina mais próxima da subestação otimizada
-                    distancias_subestacao = np.linalg.norm(coords - substation_pos, axis=1)
-                    ponto_de_coleta_idx = np.argmin(distancias_subestacao)
+                    # Cria array com turbinas + subestação
+                    coords_with_sub = np.vstack([coords, substation_pos])
+                    substation_idx = len(coords)  # Índice da subestação (último elemento)
+                    coords_with_substation = coords_with_sub  # Salva para visualização
                 else:
-                    # Fallback: encontra ponto de coleta mais próximo do continente (arquivos antigos)
+                    # Fallback: usa turbina mais próxima do continente (arquivos antigos)
                     distancias_ao_continente = np.linalg.norm(coords - SUBSTATION_CONTINENT, axis=1)
-                    ponto_de_coleta_idx = np.argmin(distancias_ao_continente)
+                    substation_idx = np.argmin(distancias_ao_continente)
+                    coords_with_sub = coords
                 
-                # Usa n_grupos do arquivo ou tenta inferir do custo
-                # Se não tem n_grupos salvo, usa valor padrão baseado no número de turbinas
+                # Usa n_grupos do arquivo ou valor padrão
                 if n_grupos is not None:
                     n_grupos_to_use = n_grupos
                 else:
-                    # Valor padrão: sqrt do número de turbinas (4 para 16 turbinas)
-                    n_grupos_to_use = int(np.sqrt(IND_SIZE))
+                    n_grupos_to_use = int(np.sqrt(IND_SIZE))  # Valor padrão
                 
-                # Calcula cabeamento
+                # Calcula cabeamento com subestação incluída
                 planta, _ = cabling_v3.analisar_layout_completo(
-                    coords, sub=ponto_de_coleta_idx, n_grupos=n_grupos_to_use)
+                    coords_with_sub, sub=substation_idx, n_grupos=n_grupos_to_use)
                 cabling_paths = planta.paths
                 
-                # Debug: mostra quantos paths foram calculados
-                if len(all_coords) % 50 == 0:  # Print a cada 50 frames
+                # Debug
+                if len(all_coords) % 50 == 0:
                     cost_str = f"{cost:.2f}" if cost is not None else "N/A"
-                    print(f"  Frame {len(all_coords)}: {len(cabling_paths)} paths de cabeamento, n_grupos={n_grupos_to_use}, cost={cost_str}")
-                    if len(cabling_paths) > 0:
-                        print(f"    Exemplo path[0]: {cabling_paths[0]}")
-                        # Verifica se paths mudaram em relação ao anterior
-                        if len(all_cabling_paths) > 0 and all_cabling_paths[-1] is not None:
-                            prev_paths = all_cabling_paths[-1]
-                            if len(prev_paths) == len(cabling_paths):
-                                paths_changed = any(prev_paths[i] != cabling_paths[i] for i in range(len(prev_paths)))
-                                print(f"    Paths mudaram: {paths_changed}")
-                            else:
-                                print(f"    Número de paths mudou: {len(prev_paths)} -> {len(cabling_paths)}")
+                    sub_str = f"({substation_pos[0]:.1f}, {substation_pos[1]:.1f})" if substation_pos is not None else "N/A"
+                    print(f"  Frame {len(all_coords)}: {len(cabling_paths)} paths, n_grupos={n_grupos_to_use}, cost={cost_str}, substation={sub_str}")
             except Exception as e:
-                # Mostra erro apenas para debug (pode ser removido depois)
                 if len(all_coords) % 50 == 0:
                     print(f"  Erro ao calcular cabeamento no frame {len(all_coords)}: {e}")
                 cabling_paths = None
+                coords_with_substation = None
         
         all_cabling_paths.append(cabling_paths)
+        all_substation_pos.append(substation_pos)
+        all_coords_with_sub.append(coords_with_substation)
+        
+        # Verifica movimento das turbinas na Fase 2 (debug)
+        if phase == 2 and len(all_coords) > 0:
+            prev_coords = all_coords[-1]
+            coords_diff = np.linalg.norm(coords - prev_coords, axis=1)
+            max_movement = np.max(coords_diff)
+            avg_movement = np.mean(coords_diff)
+            if len(all_coords) % 50 == 0 and max_movement > 0:
+                print(f"  ✓ Turbinas movendo! Movimento máx: {max_movement:.1f}m, médio: {avg_movement:.1f}m")
         
         # Mostra progresso a cada 100 arquivos
         if len(all_coords) % 100 == 0:
@@ -215,6 +221,8 @@ def create_animation():
     # Inicializa elementos
     scatter = ax1.scatter([], [], s=150, c='red', edgecolors='black', 
                           linewidths=1.5, zorder=5, label='Turbinas')
+    scatter_substation = ax1.scatter([], [], s=400, c='yellow', marker='*', 
+                                    edgecolors='black', linewidths=2, zorder=10, label='Subestação')
     title_text = ax1.set_title('', fontsize=14, fontweight='bold')
     
     # Lista para armazenar linhas de cabeamento (será atualizada a cada frame)
@@ -258,7 +266,7 @@ def create_animation():
     def animate(frame):
         """Função de animação para cada frame."""
         if frame >= len(all_coords):
-            return scatter, title_text, line_aep, line_cost
+            return scatter, scatter_substation, title_text, line_aep, line_cost
         
         coords = all_coords[frame]
         aep = all_aep[frame]
@@ -266,6 +274,8 @@ def create_animation():
         gen_num = all_gen_numbers[frame]
         phase = all_phases[frame]
         cabling_paths = all_cabling_paths[frame]
+        substation_pos = all_substation_pos[frame]
+        coords_with_sub = all_coords_with_sub[frame]
         
         # Remove linhas de cabeamento anteriores
         for line in cabling_lines_container:
@@ -276,25 +286,31 @@ def create_animation():
         cabling_lines_container.clear()
         
         # Desenha linhas de cabeamento (apenas Fase 2)
-        if phase == 2 and cabling_paths is not None and len(cabling_paths) > 0:
-            # Usa cores distintas para cada string/grupo
+        if phase == 2 and cabling_paths is not None and len(cabling_paths) > 0 and coords_with_sub is not None:
+            # Usa coords_with_sub que inclui a subestação
             colors = plt.cm.tab10(np.linspace(0, 1, min(len(cabling_paths), 10)))
-            paths_drawn = 0
             for i, path in enumerate(cabling_paths):
                 if len(path) > 1:
-                    # Filtra índices válidos (dentro do range de coordenadas)
-                    valid_path = [k for k in path if 0 <= k < len(coords)]
+                    # Usa coords_with_sub que tem turbinas + subestação
+                    valid_path = [k for k in path if 0 <= k < len(coords_with_sub)]
                     if len(valid_path) > 1:
-                        x_path = [coords[k, 0] for k in valid_path]
-                        y_path = [coords[k, 1] for k in valid_path]
+                        x_path = [coords_with_sub[k, 0] for k in valid_path]
+                        y_path = [coords_with_sub[k, 1] for k in valid_path]
                         line, = ax1.plot(x_path, y_path, '-', linewidth=2.5, 
                                         color=colors[i % len(colors)], alpha=0.8, zorder=4,
                                         label=f'String {i+1}' if i < 5 else '')
                         cabling_lines_container.append(line)
-                        paths_drawn += 1
         
-        # Atualiza layout
+        # Atualiza layout das turbinas
         scatter.set_offsets(coords)
+        
+        # Atualiza subestação (apenas Fase 2)
+        if phase == 2 and substation_pos is not None:
+            scatter_substation.set_offsets([substation_pos])
+            scatter_substation.set_visible(True)
+        else:
+            scatter_substation.set_offsets(np.empty((0, 2)))
+            scatter_substation.set_visible(False)
         
         # Título muda conforme a fase
         if phase == 1:

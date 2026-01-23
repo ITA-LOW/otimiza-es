@@ -50,7 +50,7 @@ creator.create("IndividualPhase1", list, fitness=creator.FitnessMax)
 # Fase 2: Multi-objective (AEP líquido + Custo)
 # FitnessMulti: maximiza AEP (peso +1.0) e minimiza Custo (peso -1.0)
 # IndividualPhase2: indivíduo da Fase 2 = [coords turbinas] + [n_grupos] + [coords subestação]
-creator.create("FitnessMulti", base.Fitness, weights=(1.0, -1.0))
+creator.create("FitnessMulti", base.Fitness, weights=(1.0, -100.0))
 creator.create("IndividualPhase2", list, fitness=creator.FitnessMulti)
 
 # Cria toolboxes separadas para cada fase
