@@ -1947,33 +1947,37 @@ def main(results_dir, multi_scale_dirs=None):
     print(f"✓ Gráficos salvos em: {os.path.abspath(results_dir)}")
 
 if __name__ == "__main__":
-    import argparse
+    # =========================================================================
+    # CONFIGURAÇÃO HARDCODED - Edite aqui os diretórios de resultados
+    # =========================================================================
     
-    parser = argparse.ArgumentParser(description='Gera gráficos dos resultados do estudo de caso')
-    parser.add_argument('--results-dir', type=str, default='results_36',
-                       help='Diretório onde estão os CSVs (padrão: results_36)')
-    parser.add_argument('--multi-scale', nargs='+', type=str,
-                       help='Diretórios para análise multi-escala. Ex: --multi-scale results_16 results_36 results_64')
-    parser.add_argument('--scales', nargs='+', type=str,
-                       help='Escalas correspondentes. Ex: --scales 16 36 64 (deve ter mesmo número de --multi-scale)')
+    # Diretório principal onde serão salvos os gráficos e testes estatísticos
+    RESULTS_DIR = 'results_36'
     
-    args = parser.parse_args()
+    # Para análise multi-escala, defina os diretórios aqui:
+    # Formato: {escala: caminho_do_diretório}
+    # Se você não quer análise multi-escala, deixe como None
+    MULTI_SCALE_DIRS = {
+        '16': 'results_16',
+        '36': 'results_36',
+        # '64': 'results_64',  # Descomente se tiver resultados para 64 turbinas
+    }
     
-    multi_scale_dirs = None
-    if args.multi_scale:
-        if args.scales and len(args.scales) == len(args.multi_scale):
-            multi_scale_dirs = {scale: dir_path for scale, dir_path in zip(args.scales, args.multi_scale)}
-        else:
-            # Tenta inferir escala do nome do diretório
-            multi_scale_dirs = {}
-            for dir_path in args.multi_scale:
-                # Procura número no nome do diretório
-                import re
-                match = re.search(r'(\d+)', os.path.basename(dir_path))
-                if match:
-                    scale = match.group(1)
-                    multi_scale_dirs[scale] = dir_path
-                else:
-                    print(f"AVISO: Não foi possível inferir escala de {dir_path}, pulando...")
+    # Se você quer apenas uma única escala (sem comparações multi-escala),
+    # use a linha abaixo ao invés da definição acima:
+    # MULTI_SCALE_DIRS = None
     
-    main(results_dir=args.results_dir, multi_scale_dirs=multi_scale_dirs)
+    # =========================================================================
+    # Executa o script
+    # =========================================================================
+    
+    print("="*80)
+    print("CONFIGURAÇÃO:")
+    print(f"  Diretório de saída: {RESULTS_DIR}")
+    if MULTI_SCALE_DIRS:
+        print(f"  Análise multi-escala: {list(MULTI_SCALE_DIRS.keys())} turbinas")
+    else:
+        print("  Análise de escala única")
+    print("="*80)
+    
+    main(results_dir=RESULTS_DIR, multi_scale_dirs=MULTI_SCALE_DIRS)
