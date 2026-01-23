@@ -1803,6 +1803,38 @@ def perform_statistical_tests(results_dirs, output_dir='.'):
                         
                     except Exception as e:
                         f_txt.write(f"  ERROR: {e}\n\n")
+                
+                # Teste 3: Proposed vs Sequential
+                if len(proposed_data) > 0 and len(sequential_data) > 0:
+                    try:
+                        statistic_ps, p_value_ps = stats.mannwhitneyu(
+                            proposed_data, sequential_data, alternative='two-sided'
+                        )
+                        
+                        is_significant_ps = p_value_ps < 0.05
+                        significance_ps = "***" if p_value_ps < 0.001 else "**" if p_value_ps < 0.01 else "*" if p_value_ps < 0.05 else "ns"
+                        
+                        if metric_info['better'] == 'higher':
+                            winner_ps = "Proposed" if proposed_mean > sequential_mean else "Sequential"
+                        else:
+                            winner_ps = "Proposed" if proposed_mean < sequential_mean else "Sequential"
+                        
+                        f_txt.write(f"Test: Proposed vs Sequential\n")
+                        f_txt.write(f"  Mann-Whitney U statistic: {statistic_ps:.4f}\n")
+                        f_txt.write(f"  p-value: {p_value_ps:.6f} {significance_ps}\n")
+                        f_txt.write(f"  Significant: {'YES' if is_significant_ps else 'NO'}\n")
+                        f_txt.write(f"  Better method: {winner_ps}\n\n")
+                        
+                        if scale_str not in scale_results:
+                            scale_results[scale_str] = {}
+                        scale_results[scale_str][f"{metric_key}_proposed_vs_sequential"] = {
+                            'p_value': p_value_ps,
+                            'significant': is_significant_ps,
+                            'winner': winner_ps
+                        }
+                        
+                    except Exception as e:
+                        f_txt.write(f"  ERROR: {e}\n\n")
             
             all_results[scale_str] = scale_results
         
