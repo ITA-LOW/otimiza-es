@@ -1,0 +1,28 @@
+================================================================================
+TAXA DE SUCESSO - TODOS OS MÉTODOS
+================================================================================
+
+BASELINE:
+  Total de execuções: 20
+  Sucessos (soluções válidas encontradas): 20
+  Falhas (nenhuma solução válida): 0
+  Taxa de sucesso: 100.0%
+  Taxa de falha: 0.0%
+
+PROPOSED:
+  Total de execuções: 20
+  Sucessos (soluções válidas encontradas): 20
+  Falhas (nenhuma solução válida): 0
+  Taxa de sucesso: 100.0%
+  Taxa de falha: 0.0%
+
+SEQUENTIAL:
+  Total de execuções: 20
+  Sucessos (soluções válidas encontradas): 20
+  Falhas (nenhuma solução válida): 0
+  Taxa de sucesso: 100.0%
+  Taxa de falha: 0.0%
+
+================================================================================
+NOTA: Uma solução é considerada sucesso se Net_AEP_GWh > 0 e Total_Cost_USD > 0
+================================================================================

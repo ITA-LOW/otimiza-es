@@ -1,0 +1,23 @@
+\begin{table}[htbp]
+\caption{Quantitative performance metrics across problem scales (mean $\pm$ std).}
+\label{tab:quantitative_metrics}
+\centering
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{clccc}
+\toprule
+\textbf{Scale} & \textbf{Method} & \textbf{Net AEP} & \textbf{CAPEX} & \textbf{Time} \\
+ &  & [GWh] & [kUSD] & [min] \\
+\midrule
+\multirow{3}{*}{16}
+ & Baseline     & $402.92 \pm 8.29$ & $200 \pm 32$ & $9.4 \pm 0.1$ \\
+ & Proposed     & $462.33 \pm 1.55$ & $561 \pm 36$ & $5.7 \pm 0.2$ \\
+ & Sequential   & $464.43 \pm 0.59$ & $672 \pm 94$ & $4.8 \pm 0.1$ \\
+\midrule
+\multirow{3}{*}{36}
+ & Baseline     & $837.94 \pm 10.85$ & $861 \pm 265$ & $42.3 \pm 0.5$ \\
+ & Proposed     & $942.71 \pm 5.14$ & $1182 \pm 390$ & $19.8 \pm 0.9$ \\
+ & Sequential   & $945.93 \pm 3.70$ & $1861 \pm 596$ & $21.7 \pm 0.3$ \\
+\bottomrule
+\end{tabular}%
+}
+\end{table}

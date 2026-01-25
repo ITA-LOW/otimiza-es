@@ -60,9 +60,9 @@ from multi_objetivo.metrics_collector import (
 
 # SEED será gerada aleatoriamente no início da execução e salva para reprodutibilidade
 SEED = None  # Será definida no início da execução
-N_RUNS = 5  # Número de execuções (cada uma com seed diferente)
-POP_SIZE = 15  # Tamanho da população
-generations = 500
+N_RUNS = 20  # Número de execuções (cada uma com seed diferente)
+POP_SIZE = 300  # Tamanho da população
+generations = 1000
 NGEN_BASELINE = 2*generations  # Número de gerações para Baseline
 NGEN_SEQUENTIAL_P1 = generations  # Gerações Fase 1 Sequential (igual ao wind_farm_GA_16.py)
 NGEN_SEQUENTIAL_P2 = generations  # Gerações Fase 2 Sequential (otimização de cabeamento)
@@ -70,14 +70,14 @@ NGEN_PROPOSED_P1 = generations  # Gerações Fase 1 Proposed (igual ao Sequentia
 NGEN_PROPOSED_P2 = generations  # Gerações Fase 2 Proposed (NSGA-II multiobjetivo)
 
 # Parâmetros do Algoritmo Genético
-CXPB = 0.95  # Probabilidade de crossover
-MUTPB = 0.7  # Probabilidade de mutação
-INDPB = 0.4  # Probabilidade de mutar cada gene
+CXPB = 0.8  # Probabilidade de crossover
+MUTPB = 0.2  # Probabilidade de mutação
+INDPB = 0.2  # Probabilidade de mutar cada gene
 SIGMA = 100  # Desvio padrão para mutação gaussiana (metros)
 TOURNSIZE = 5  # Tamanho do torneio
 
 # Constantes físicas
-IND_SIZE = 16  # Número de turbinas
+IND_SIZE = 64  # Número de turbinas
 CIRCLE_RADIUS = 5000  # Raio do círculo de restrição (metros)
 N_DIAMETERS = 260  # Distância mínima entre turbinas (diâmetros)
 MIN_SUB_TURB_DIST = 50.0  # Distância mínima entre subestação e turbinas (metros)
@@ -85,7 +85,7 @@ MIN_SUB_TURB_DIST = 50.0  # Distância mínima entre subestação e turbinas (me
 # Limites para número de grupos de cabeamento
 MIN_GRUPOS = np.sqrt(IND_SIZE)
 MAX_GRUPOS = IND_SIZE
-N_GRUPOS_INICIAL = random.randint(MIN_GRUPOS, MAX_GRUPOS)
+N_GRUPOS_INICIAL = random.randint(int(MIN_GRUPOS), int(MAX_GRUPOS))
 
 # =============================================================================
 # CONFIGURAÇÃO DO DIRETÓRIO DE SAÍDA
@@ -93,7 +93,7 @@ N_GRUPOS_INICIAL = random.randint(MIN_GRUPOS, MAX_GRUPOS)
 # Define o nome do diretório onde todos os resultados serão salvos
 # Modifique esta variável para escolher o nome do diretório
 # Exemplo: OUTPUT_DIR = 'teste_16' ou OUTPUT_DIR = 'teste_36_turbinas'
-OUTPUT_DIR = 'results_16'  # <-- MODIFIQUE AQUI o nome do diretório
+OUTPUT_DIR = 'results_64'  # <-- MODIFIQUE AQUI o nome do diretório
 
 # Parâmetros de detecção de sobreposição de cabos
 MIN_CABLE_DISTANCE = 100.0  # Distância mínima permitida entre segmentos de cabos (metros)
@@ -130,7 +130,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 config_dir = "config"
 
 # Caminhos para arquivos YAML (explícitos)
-main_yaml_path = os.path.join(BASE_DIR, config_dir, "iea37-ex16.yaml")
+main_yaml_path = os.path.join(BASE_DIR, config_dir, "iea37-ex64.yaml")
 windrose_yaml_path = os.path.join(BASE_DIR, config_dir, "iea37-windrose.yaml")
 turbine_attrs_yaml_path = os.path.join(BASE_DIR, config_dir, "iea37-335mw.yaml")
 
@@ -2085,7 +2085,7 @@ if __name__ == "__main__":
     print(f"  Gerações Sequential Fase 2: {NGEN_SEQUENTIAL_P2}")
     print(f"  Gerações Proposed Fase 1: {NGEN_PROPOSED_P1}")
     print(f"  Gerações Proposed Fase 2: {NGEN_PROPOSED_P2}")
-    
+    print(f"  Número de grupos inicial: {N_GRUPOS_INICIAL}")
     # Obtém número de processadores disponíveis
     num_cores = os.cpu_count()
     print(f"  Processadores disponíveis: {num_cores}")

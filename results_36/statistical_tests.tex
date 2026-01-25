@@ -1,0 +1,26 @@
+% Statistical Significance Tests - LaTeX Table
+\begin{table*}[htbp]
+\caption{Statistical significance tests (Mann-Whitney U) comparing optimization methods.}
+\label{tab:statistical_tests}
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{llccccl}
+\toprule
+\textbf{Scale} & \textbf{Metric} & \textbf{Baseline} & \textbf{Proposed} & \textbf{Sequential} & \textbf{p-value} & \textbf{Conclusion} \\
+\midrule
+16 & Hypervolume [×10¹²] & $8488673264923.95\pm105427838485.16$ & $8917445162370.14\pm80463600136.00$ & $8935668894578.57\pm49976926140.77$ & 0.0000*** & \textbf{Proposed} \\
+16 & Net AEP [GWh] & $402.92\pm8.08$ & $462.33\pm1.51$ & $464.43\pm0.57$ & 0.0000*** & \textbf{Proposed} \\
+16 & Cabling Cost [USD] & $199.72\pm30.73$ & $561.24\pm35.04$ & $671.95\pm91.70$ & 0.0000*** & \textbf{Baseline} \\
+16 & Execution Time [seconds] & $9.44\pm0.11$ & $5.71\pm0.15$ & $4.83\pm0.11$ & 0.0000*** & \textbf{Proposed} \\
+36 & Hypervolume [×10¹²] & $16387218542772.94\pm189687555051.69$ & $17216468150387.64\pm322842459384.48$ & $17298409488316.77\pm216310720149.03$ & 0.0000*** & \textbf{Proposed} \\
+36 & Net AEP [GWh] & $837.94\pm10.57$ & $942.71\pm5.01$ & $945.93\pm3.61$ & 0.0000*** & \textbf{Proposed} \\
+36 & Cabling Cost [USD] & $861.40\pm258.10$ & $1181.74\pm380.38$ & $1861.35\pm581.09$ & 0.0000*** & \textbf{Baseline} \\
+36 & Execution Time [seconds] & $42.26\pm0.46$ & $19.81\pm0.90$ & $21.69\pm0.32$ & 0.0000*** & \textbf{Proposed} \\
+\bottomrule
+\end{tabular}%
+}
+\begin{tablenotes}
+\small
+\item Note: Significance levels: *** p<0.001, ** p<0.01, * p<0.05, ns = not significant.
+\end{tablenotes}
+\end{table*}
